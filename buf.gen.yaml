@@ -1,0 +1,21 @@
+version: v2
+plugins:
+  # Go protobuf messages
+  - plugin: buf.build/protocolbuffers/go:v1.36.5
+    out: gen
+    opt: paths=source_relative
+
+  # Connect-go handler interfaces
+  - plugin: buf.build/connectrpc/go:v1.19.1
+    out: gen
+    opt: paths=source_relative
+
+  # TypeScript protobuf messages (for the React app)
+  - plugin: buf.build/bufbuild/es:v2.2.3
+    out: web/src/gen
+    opt: target=ts,import_extension=none
+
+  # TypeScript Connect client
+  - plugin: buf.build/connectrpc/es:v2.0.0
+    out: web/src/gen
+    opt: target=ts,import_extension=none

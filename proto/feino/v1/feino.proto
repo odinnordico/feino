@@ -1,0 +1,435 @@
+syntax = "proto3";
+package feino.v1;
+option go_package = "github.com/odinnordico/feino/gen/feino/v1;feinov1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// ════════════════════════════════════════════════════════════════════
+// Service
+// ════════════════════════════════════════════════════════════════════
+
+service FeinoService {
+  // ── Chat ──────────────────────────────────────────────────────────
+  // Send a user message; receive the agent turn as a stream of events.
+  rpc SendMessage(SendMessageRequest) returns (stream AgentEvent);
+  // Abort the currently in-flight agent turn.
+  rpc CancelTurn(CancelTurnRequest) returns (CancelTurnResponse);
+  // Unblock a pending permission prompt.
+  rpc ResolvePermission(ResolvePermissionRequest) returns (ResolvePermissionResponse);
+  // Snapshot of session state.
+  rpc GetSessionState(GetSessionStateRequest) returns (SessionStateResponse);
+
+  // ── History ────────────────────────────────────────────────────────
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  rpc ResetSession(ResetSessionRequest) returns (ResetSessionResponse);
+
+  // ── Config ─────────────────────────────────────────────────────────
+  rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+  rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse);
+  rpc GetConfigYAML(GetConfigYAMLRequest) returns (GetConfigYAMLResponse);
+
+  // ── Memory ─────────────────────────────────────────────────────────
+  rpc ListMemories(ListMemoriesRequest) returns (ListMemoriesResponse);
+  rpc WriteMemory(WriteMemoryRequest) returns (WriteMemoryResponse);
+  rpc UpdateMemory(UpdateMemoryRequest) returns (UpdateMemoryResponse);
+  rpc DeleteMemory(DeleteMemoryRequest) returns (DeleteMemoryResponse);
+
+  // ── Metrics ────────────────────────────────────────────────────────
+  rpc StreamMetrics(StreamMetricsRequest) returns (stream MetricsEvent);
+
+  // ── Files ──────────────────────────────────────────────────────────
+  rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+
+  // ── Commands ───────────────────────────────────────────────────────
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+
+  // ── Plugins ────────────────────────────────────────────────────────
+  rpc ReloadPlugins(ReloadPluginsRequest) returns (ReloadPluginsResponse);
+
+  // ── Bypass (yolo) mode ─────────────────────────────────────────────
+  rpc SetBypassMode(SetBypassModeRequest) returns (SetBypassModeResponse);
+  rpc ClearBypassMode(ClearBypassModeRequest) returns (ClearBypassModeResponse);
+  rpc GetBypassState(GetBypassStateRequest) returns (BypassStateResponse);
+
+  // ── Language / Theme ───────────────────────────────────────────────
+  rpc SetLanguage(SetLanguageRequest) returns (SetLanguageResponse);
+  rpc SetTheme(SetThemeRequest) returns (SetThemeResponse);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Chat
+// ════════════════════════════════════════════════════════════════════
+
+message SendMessageRequest {
+  string text = 1;
+  repeated FileAttachment attachments = 2;
+}
+
+message FileAttachment {
+  string path         = 1; // server-side absolute path
+  string upload_token = 2; // token from UploadFileResponse
+}
+
+message CancelTurnRequest  {}
+message CancelTurnResponse {}
+
+message ResolvePermissionRequest {
+  string request_id = 1;
+  bool   approved   = 2;
+}
+message ResolvePermissionResponse {}
+
+message GetSessionStateRequest {}
+message SessionStateResponse {
+  bool   busy          = 1;
+  int32  queue_length  = 2;
+  string react_state   = 3;
+  bool   bypass_active = 4;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Agent event stream
+// ════════════════════════════════════════════════════════════════════
+
+message AgentEvent {
+  oneof event {
+    PartReceivedEvent      part_received      = 1;
+    ThoughtReceivedEvent   thought_received   = 2;
+    ToolCallEvent          tool_call          = 3;
+    ToolResultEvent        tool_result        = 4;
+    StateChangedEvent      state_changed      = 5;
+    UsageUpdatedEvent      usage_updated      = 6;
+    CompleteEvent          complete           = 7;
+    ErrorEvent             error              = 8;
+    PermissionRequestEvent permission_request = 9;
+    QueuePositionEvent     queue_position     = 10;
+  }
+}
+
+message PartReceivedEvent    { string text = 1; }
+message ThoughtReceivedEvent { string text = 1; }
+
+message ToolCallEvent {
+  string call_id   = 1;
+  string name      = 2;
+  string arguments = 3; // JSON-encoded
+}
+
+message ToolResultEvent {
+  string call_id  = 1;
+  string name     = 2;
+  string content  = 3;
+  bool   is_error = 4;
+}
+
+message StateChangedEvent { string state = 1; }
+message UsageUpdatedEvent { UsageMetadata usage = 1; }
+message CompleteEvent     { string final_text = 1; }
+message ErrorEvent        { string message = 1; string code = 2; }
+
+message PermissionRequestEvent {
+  string request_id = 1;
+  string tool_name  = 2;
+  string required   = 3;
+  string allowed    = 4;
+}
+
+message QueuePositionEvent {
+  int32 position  = 1;
+  int32 queue_max = 2;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// History
+// ════════════════════════════════════════════════════════════════════
+
+message GetHistoryRequest  {}
+message GetHistoryResponse { repeated HistoryMessage messages = 1; }
+
+message ResetSessionRequest  {}
+message ResetSessionResponse {}
+
+message HistoryMessage {
+  string                    role       = 1;
+  repeated HistoryPart      parts      = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+message HistoryPart {
+  oneof content {
+    string     text        = 1;
+    ToolCall   tool_call   = 2;
+    ToolResult tool_result = 3;
+    string     thought     = 4;
+  }
+}
+
+message ToolCall {
+  string id        = 1;
+  string name      = 2;
+  string arguments = 3;
+}
+
+message ToolResult {
+  string call_id  = 1;
+  string name     = 2;
+  string content  = 3;
+  bool   is_error = 4;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Config
+// ════════════════════════════════════════════════════════════════════
+
+message GetConfigRequest     {}
+message GetConfigResponse    { ConfigProto config = 1; }
+message UpdateConfigRequest  { ConfigProto config = 1; }
+message UpdateConfigResponse { ConfigProto config = 1; string message = 2; }
+message GetConfigYAMLRequest {}
+message GetConfigYAMLResponse { string yaml = 1; }
+
+// ConfigProto mirrors config.Config. API keys are write-only:
+// accepted in UpdateConfigRequest, always empty in GetConfigResponse.
+// The has_api_key field signals whether a key is stored.
+message ConfigProto {
+  ProvidersConfigProto   providers = 1;
+  AgentConfigProto       agent     = 2;
+  SecurityConfigProto    security  = 3;
+  ContextConfigProto     context   = 4;
+  UIConfigProto          ui        = 5;
+  UserProfileConfigProto user      = 6;
+  ServicesConfigProto    services  = 7;
+}
+
+message ProvidersConfigProto {
+  AnthropicConfigProto    anthropic     = 1;
+  OpenAIConfigProto       openai        = 2;
+  GeminiConfigProto       gemini        = 3;
+  OllamaConfigProto       ollama        = 4;
+  OpenAICompatConfigProto openai_compat = 5;
+}
+
+message AnthropicConfigProto {
+  string api_key       = 1; // write-only; always empty in responses
+  string default_model = 2;
+  bool   has_api_key   = 3; // true when a key is stored (read-only)
+}
+
+message OpenAIConfigProto {
+  string api_key       = 1; // write-only
+  string base_url      = 2;
+  string default_model = 3;
+  bool   has_api_key   = 4;
+}
+
+message GeminiConfigProto {
+  string api_key       = 1; // write-only
+  string default_model = 2;
+  bool   vertex        = 3;
+  string project_id    = 4;
+  string location      = 5;
+  bool   has_api_key   = 6;
+}
+
+message OllamaConfigProto {
+  string host          = 1;
+  string default_model = 2;
+}
+
+message OpenAICompatConfigProto {
+  string base_url      = 1;
+  string api_key       = 2; // write-only
+  string name          = 3;
+  string default_model = 4;
+  bool   disable_tools = 5;
+  bool   has_api_key   = 6;
+}
+
+message AgentConfigProto {
+  int32  max_retries               = 1;
+  int32  high_complexity_threshold = 2;
+  int32  low_complexity_threshold  = 3;
+  string metrics_path              = 4;
+}
+
+message SecurityConfigProto {
+  string          permission_level     = 1;
+  repeated string allowed_paths        = 2;
+  bool            enable_ast_blacklist = 3;
+}
+
+message ContextConfigProto {
+  string working_dir        = 1;
+  string global_config_path = 2;
+  int32  max_budget         = 3;
+  string plugins_dir        = 4;
+}
+
+message UIConfigProto {
+  string theme     = 1;
+  string log_level = 2;
+  string language  = 3;
+}
+
+message UserProfileConfigProto {
+  string name                = 1;
+  string timezone            = 2;
+  string communication_style = 3;
+}
+
+message ServicesConfigProto {
+  EmailServiceConfigProto email = 1;
+}
+
+message EmailServiceConfigProto {
+  bool   enabled      = 1;
+  string address      = 2;
+  string imap_host    = 3;
+  int32  imap_port    = 4;
+  string smtp_host    = 5;
+  int32  smtp_port    = 6;
+  bool   has_password = 7; // write-only indicator
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Memory
+// ════════════════════════════════════════════════════════════════════
+
+message ListMemoriesRequest {
+  string category = 1; // empty = all; valid: profile|preference|fact|note
+  string query    = 2; // optional full-text search
+}
+message ListMemoriesResponse  { repeated MemoryEntryProto entries = 1; }
+
+message WriteMemoryRequest    { string category = 1; string content = 2; }
+message WriteMemoryResponse   { MemoryEntryProto entry = 1; }
+
+message UpdateMemoryRequest   { string id = 1; string content = 2; }
+message UpdateMemoryResponse  { MemoryEntryProto entry = 1; }
+
+message DeleteMemoryRequest   { string id = 1; }
+message DeleteMemoryResponse  {}
+
+message MemoryEntryProto {
+  string                    id         = 1;
+  string                    category   = 2;
+  string                    content    = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Metrics
+// ════════════════════════════════════════════════════════════════════
+
+message StreamMetricsRequest {}
+
+message MetricsEvent {
+  UsageMetadata             usage       = 1;
+  double                    latency_ms  = 2;
+  string                    react_state = 3;
+  google.protobuf.Timestamp timestamp   = 4;
+}
+
+message UsageMetadata {
+  int32  prompt_tokens         = 1;
+  int32  completion_tokens     = 2;
+  int32  total_tokens          = 3;
+  int32  cache_creation_tokens = 4;
+  int32  cache_read_tokens     = 5;
+  double duration_ms           = 6;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Files
+// ════════════════════════════════════════════════════════════════════
+
+message UploadFileRequest {
+  string filename = 1;
+  bytes  content  = 2;
+}
+
+message UploadFileResponse {
+  string token       = 1;
+  string server_path = 2;
+  int64  size_bytes  = 3;
+}
+
+message ListFilesRequest {
+  string path      = 1; // relative to working_dir; empty = root
+  bool   dirs_only = 2;
+}
+
+message ListFilesResponse {
+  repeated FileEntry entries = 1;
+  string             base    = 2;
+}
+
+message FileEntry {
+  string name     = 1;
+  bool   is_dir   = 2;
+  int64  size     = 3;
+  string rel_path = 4;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Commands
+// ════════════════════════════════════════════════════════════════════
+
+message ExecuteCommandRequest {
+  // clear | reset | history | config | profile | reload-plugins
+  // | email-setup | exit | yolo | lang | theme
+  string                command = 1;
+  google.protobuf.Struct args   = 2;
+}
+
+message ExecuteCommandResponse {
+  string                message = 1;
+  bool                  success = 2;
+  google.protobuf.Struct data   = 3;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Plugins
+// ════════════════════════════════════════════════════════════════════
+
+message ReloadPluginsRequest  {}
+message ReloadPluginsResponse {
+  int32           count   = 1;
+  repeated string plugins = 2;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Bypass (yolo) mode
+// ════════════════════════════════════════════════════════════════════
+
+message SetBypassModeRequest {
+  bool  session_long = 1;
+  int64 duration_sec = 2; // 300 | 600 | 1800
+}
+message SetBypassModeResponse {
+  google.protobuf.Timestamp expires_at   = 1;
+  bool                      session_long = 2;
+}
+
+message ClearBypassModeRequest  {}
+message ClearBypassModeResponse {}
+
+message GetBypassStateRequest {}
+message BypassStateResponse {
+  bool                      active       = 1;
+  bool                      session_long = 2;
+  google.protobuf.Timestamp expires_at   = 3;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Language / Theme
+// ════════════════════════════════════════════════════════════════════
+
+message SetLanguageRequest  { string code  = 1; }
+message SetLanguageResponse { string code  = 1; string label = 2; }
+
+message SetThemeRequest     { string theme = 1; }
+message SetThemeResponse    { string theme = 1; }

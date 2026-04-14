@@ -1,0 +1,91 @@
+/* Neural Terminal — design spec color tokens */
+:root {
+  /* ── Backgrounds ─────────────────────────────────────────── */
+  --color-bg:          #050508;
+  --color-surface-1:   #0d0d14;
+  --color-surface-2:   #14141f;
+  --color-surface-3:   #1a1a2e;
+  --color-border:      #1e1e2e;
+  --color-border-dim:  #131320;
+
+  /* ── Neon green (primary) ────────────────────────────────── */
+  --color-primary:       #00ff88;
+  --color-primary-dim:   #00cc6a;
+  --color-primary-muted: rgba(0, 255, 136, 0.12);
+  --color-glow:          rgba(0, 255, 136, 0.18);
+  --color-glow-strong:   rgba(0, 255, 136, 0.35);
+
+  /* ── Cyan (secondary accent) ────────────────────────────── */
+  --color-accent:     #00e5ff;
+  --color-accent-dim: #00b8cc;
+
+  /* ── Text ────────────────────────────────────────────────── */
+  --color-text:        #e8e8f0;
+  --color-text-dim:    #8888aa;
+  --color-text-faint:  #4a4a66;
+  --color-text-bright: #ffffff;
+  --color-text-code:   #00ff88;
+
+  /* ── Semantic ────────────────────────────────────────────── */
+  --color-error:          #ff4466;
+  --color-error-muted:    rgba(255, 68, 102, 0.15);
+  --color-warning:        #ffaa00;
+  --color-warning-muted:  rgba(255, 170, 0, 0.15);
+  --color-success:        #00ff88;
+  --color-info:           #00e5ff;
+
+  /* ── State colors ────────────────────────────────────────── */
+  --color-yolo:           #ff6b00;
+  --color-yolo-muted:     rgba(255, 107, 0, 0.15);
+  --color-thinking:       #9b59ff;
+  --color-thinking-muted: rgba(155, 89, 255, 0.12);
+  --color-tool:           #00e5ff;
+  --color-tool-muted:     rgba(0, 229, 255, 0.10);
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --font-sans: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-size-xs:   0.75rem;
+  --font-size-sm:   0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg:   1.125rem;
+  --font-size-xl:   1.25rem;
+
+  /* ── Spacing ─────────────────────────────────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-pill: 999px;
+
+  /* ── Shadows / Glow ──────────────────────────────────────── */
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.5);
+  --glow-primary:  0 0 12px var(--color-glow), 0 0 24px var(--color-glow);
+  --glow-focus:    0 0 0 2px var(--color-primary), 0 0 12px var(--color-glow-strong);
+
+  /* ── Transitions ─────────────────────────────────────────── */
+  --transition-fast:   120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base:   200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   350ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Light theme override */
+[data-theme="light"] {
+  --color-bg:          #f4f4f8;
+  --color-surface-1:   #ffffff;
+  --color-surface-2:   #f0f0f5;
+  --color-surface-3:   #e8e8f0;
+  --color-border:      #d8d8e8;
+  --color-border-dim:  #eaeaf0;
+  --color-primary:     #008844;
+  --color-primary-dim: #006633;
+  --color-glow:        rgba(0, 136, 68, 0.15);
+  --color-glow-strong: rgba(0, 136, 68, 0.3);
+  --color-text:        #1a1a2e;
+  --color-text-dim:    #6666aa;
+  --color-text-faint:  #aaaacc;
+  --color-text-bright: #000000;
+  --color-text-code:   #008844;
+  --color-primary-muted: rgba(0, 136, 68, 0.08);
+}

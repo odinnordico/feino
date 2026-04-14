@@ -1,0 +1,36 @@
+# Editor / OS
+.dtrash/
+.DS_Store
+.env
+.vscode/
+.idea/
+.cursor/
+
+# AI assistant config dirs
+.agent/
+.antigravity/
+.claude/
+.gemini/
+.codex/
+
+# Runtime data
+.feino/
+
+# Go binaries
+/feino
+/feino.exe
+/demoserver
+
+# Test & coverage
+coverage.out
+coverage.html
+
+# Frontend
+internal/web/ui/node_modules/
+internal/web/ui/dist/
+
+# Protobuf generated code
+gen/
+
+# Buf cache
+.buf/
