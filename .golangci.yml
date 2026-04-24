@@ -1,0 +1,91 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - copyloopvar
+    - dupl
+    - errcheck
+    - errorlint
+    - gocritic
+    - goprintffuncname
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - nolintlint
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    staticcheck:
+      checks: ["all"]
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+        - name: unused-parameter
+          disabled: true
+        - name: var-naming
+        - name: package-comments
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+    gosec:
+      excludes:
+        - G115
+
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+          - unparam
+          - errcheck
+          - gocritic
+      - path: gen/
+        linters:
+          - revive
+          - gocritic
+          - unparam
+          - unused
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/odinnordico/feino
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

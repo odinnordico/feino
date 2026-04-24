@@ -1,0 +1,84 @@
+name: Go PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
+      - "proto/**"
+      - "buf.gen.yaml"
+      - "buf.yaml"
+      - ".golangci.yml"
+      - ".github/workflows/go-pr.yml"
+      - ".github/actions/setup-go/**"
+      - ".github/actions/setup-proto/**"
+
+concurrency:
+  group: go-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  proto:
+    name: Proto lint & generate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-proto
+        with:
+          generate: "false"
+      - run: buf lint
+      - run: buf format --diff --exit-code
+      - run: buf generate
+
+  tidy:
+    name: go mod tidy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - name: Verify go.mod and go.sum are tidy
+        run: |
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not tidy — run 'go mod tidy' locally and commit"
+            git --no-pager diff go.mod go.sum
+            exit 1
+          fi
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-proto
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-proto
+      - name: Build (no frontend)
+        run: go build -o /tmp/feino ./cmd/feino
+      - name: Build (with embedded frontend stub)
+        run: |
+          mkdir -p internal/web/ui/dist
+          printf '<!doctype html><html><body>stub</body></html>' > internal/web/ui/dist/index.html
+          go build -tags web -o /tmp/feino-web ./cmd/feino

@@ -1,0 +1,99 @@
+version: 2
+
+project_name: feino
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: feino
+    main: ./cmd/feino
+    binary: feino
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -tags=web
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .FullCommit }}
+      - -X main.date={{ .CommitDate }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - SECURITY.md
+      - CONTRIBUTING.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-SNAPSHOT-{{ .ShortCommit }}"
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^build:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\(.+\))??!?:.+$'
+      order: 2
+    - title: Dependency updates
+      regexp: '^.*?(deps|build)(\(.+\))??!?:.+$'
+      order: 3
+    - title: Other
+      order: 999
+
+release:
+  draft: false
+  prerelease: auto
+  mode: append
+  footer: |
+    ## Verifying artifacts
+
+    All release artifacts are signed with GitHub's OIDC-based build attestation
+    (SLSA Level 3 provenance). Verify with the GitHub CLI:
+
+    ```bash
+    gh attestation verify feino_{{ .Version }}_linux_amd64.tar.gz \
+      --repo odinnordico/feino
+    ```
+
+    Checksums are in `checksums.txt`.

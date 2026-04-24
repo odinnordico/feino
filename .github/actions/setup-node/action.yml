@@ -1,0 +1,22 @@
+name: Set up Node for the web UI
+description: Install Node with npm cache keyed on the web UI lockfile; optionally run npm ci.
+
+inputs:
+  install:
+    description: Run `npm ci` inside internal/web/ui after setup.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+        cache-dependency-path: internal/web/ui/package-lock.json
+
+    - if: inputs.install == 'true'
+      shell: bash
+      working-directory: internal/web/ui
+      run: npm ci

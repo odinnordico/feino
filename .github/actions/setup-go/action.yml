@@ -1,0 +1,10 @@
+name: Set up Go
+description: Install Go from go.mod with module caching.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
