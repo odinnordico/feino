@@ -19,7 +19,7 @@ require (
 	github.com/lrstanley/bubblezone v1.0.0
 	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
-	github.com/ollama/ollama v0.20.0
+	github.com/ollama/ollama v0.21.2
 	github.com/openai/openai-go v1.12.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/shirou/gopsutil/v4 v4.26.3
@@ -114,5 +114,5 @@ require (
 	golang.org/x/term v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.2 // indirect
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
