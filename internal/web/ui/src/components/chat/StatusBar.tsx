@@ -9,9 +9,10 @@ function YoloCountdown({ expiry }: { expiry: number | null }) {
 
   useEffect(() => {
     if (!expiry) { setRemaining("session"); return; }
+    const expiryMs = expiry;
 
     function update() {
-      const diff = expiry! - Date.now();
+      const diff = expiryMs - Date.now();
       if (diff <= 0) { setRemaining("expired"); return; }
       const m = Math.floor(diff / 60000);
       const s = Math.floor((diff % 60000) / 1000);

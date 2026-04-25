@@ -53,7 +53,7 @@ export function InputBar({ onOpenModal }: InputBarProps) {
   // Detect @word at cursor position
   function detectAtToken(val: string, cursor: number) {
     const before = val.slice(0, cursor);
-    const match  = before.match(/@([\w./\-]*)$/);
+    const match  = before.match(/@([\w./-]*)$/);
     if (match) {
       const word  = match[1];
       const start = cursor - match[0].length;

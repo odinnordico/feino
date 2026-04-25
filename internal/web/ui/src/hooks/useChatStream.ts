@@ -177,7 +177,7 @@ export function useChatStream() {
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
-    feinoClient.cancelTurn(create(CancelTurnRequestSchema, {})).catch(() => {});
+    feinoClient.cancelTurn(create(CancelTurnRequestSchema, {})).catch(() => undefined);
   }, []);
 
   return { sendMessage, cancel };

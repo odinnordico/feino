@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
-import type { ProvidersConfigProto } from "../../gen/feino/v1/feino_pb";
 import {
+  type ProvidersConfigProto,
   AnthropicConfigProtoSchema,
   OpenAIConfigProtoSchema,
   GeminiConfigProtoSchema,

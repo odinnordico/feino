@@ -8,7 +8,11 @@ import "./styles/globals.css";
 import App from "./App";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 
-createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Root element #root not found in document");
+}
+createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
       <ErrorBoundary>

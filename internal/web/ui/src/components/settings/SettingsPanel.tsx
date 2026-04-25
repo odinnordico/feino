@@ -7,13 +7,8 @@ import { ProviderSection } from "./ProviderSection";
 import { SecuritySection } from "./SecuritySection";
 import { AgentSection } from "./AgentSection";
 import { EmailSetupSection } from "./EmailSetupSection";
-import type { ConfigProto } from "../../gen/feino/v1/feino_pb";
-
-function proto<T extends object>(msg: T | undefined): Omit<T, "$typeName" | "$unknown"> {
-  const { $typeName: _t, $unknown: _u, ...rest } = (msg ?? {}) as T & { $typeName?: unknown; $unknown?: unknown };
-  return rest as Omit<T, "$typeName" | "$unknown">;
-}
 import {
+  type ConfigProto,
   ProvidersConfigProtoSchema,
   SecurityConfigProtoSchema,
   AgentConfigProtoSchema,
@@ -21,6 +16,11 @@ import {
   ServicesConfigProtoSchema,
   EmailServiceConfigProtoSchema,
 } from "../../gen/feino/v1/feino_pb";
+
+function proto<T extends object>(msg: T | undefined): Omit<T, "$typeName" | "$unknown"> {
+  const { $typeName: _t, $unknown: _u, ...rest } = (msg ?? {}) as T & { $typeName?: unknown; $unknown?: unknown };
+  return rest as Omit<T, "$typeName" | "$unknown">;
+}
 
 type Tab = "providers" | "security" | "agent" | "context" | "email" | "advanced";
 
