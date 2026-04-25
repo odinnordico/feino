@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -211,6 +212,13 @@ func (s *Session) ListTools(ctx context.Context) ([]*sdkmcp.Tool, error) {
 // CallTool invokes the named tool on the server with the given arguments.
 // args must be JSON-serializable; nil is acceptable when the tool takes no
 // parameters.
+//
+// CallTool returns a non-nil error in two cases: (1) a transport- or
+// protocol-level failure where the SDK itself reports an error (the result
+// will be nil); (2) the server returns a result with IsError=true (e.g.
+// schema validation failure or an exception in the tool implementation) — in
+// that case the result is also returned so callers that want the original
+// content blocks can still inspect them.
 func (s *Session) CallTool(ctx context.Context, name string, args map[string]any) (*sdkmcp.CallToolResult, error) {
 	s.logger.Debug("mcp: calling tool", "tool", name)
 	params := &sdkmcp.CallToolParams{Name: name, Arguments: args}
@@ -220,11 +228,34 @@ func (s *Session) CallTool(ctx context.Context, name string, args map[string]any
 		return nil, fmt.Errorf("mcp call tool %q: %w", name, err)
 	}
 	if result.IsError {
-		s.logger.Warn("mcp: tool returned an error result", "tool", name)
-	} else {
-		s.logger.Debug("mcp: tool call succeeded", "tool", name)
+		msg := errorMessageFromResult(result)
+		s.logger.Warn("mcp: tool returned an error result", "tool", name, "error", msg)
+		return result, fmt.Errorf("mcp call tool %q: %s", name, msg)
 	}
+	s.logger.Debug("mcp: tool call succeeded", "tool", name)
 	return result, nil
+}
+
+// errorMessageFromResult builds a human-readable message from a
+// CallToolResult whose IsError flag is true. It joins the text of every
+// TextContent block in the result; if there are none it returns a generic
+// fallback so the surfaced error is never empty.
+func errorMessageFromResult(result *sdkmcp.CallToolResult) string {
+	var sb strings.Builder
+	for _, c := range result.Content {
+		tc, ok := c.(*sdkmcp.TextContent)
+		if !ok {
+			continue
+		}
+		if sb.Len() > 0 {
+			sb.WriteString("; ")
+		}
+		sb.WriteString(tc.Text)
+	}
+	if sb.Len() == 0 {
+		return "tool reported an error with no text content"
+	}
+	return sb.String()
 }
 
 // ListResources returns all resources advertised by the server, transparently

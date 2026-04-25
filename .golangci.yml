@@ -62,6 +62,10 @@ linters:
       - comments
       - common-false-positives
       - legacy
+    # Gitignore-style path exclusions. Mirrored in the Makefile's $(GO_PKGS)
+    # so `make test` / `make lint` / `make vet` all skip the same trees.
+    paths:
+      - "internal/web/ui/node_modules"
     rules:
       - path: _test\.go
         linters:

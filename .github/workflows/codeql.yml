@@ -40,7 +40,11 @@ jobs:
         run: npm run build
 
       - name: Build Go (-tags=web)
-        run: go build -tags=web ./...
+        # Filter out gitignore-style excluded paths so CodeQL's manual build
+        # mirrors what tests/lint/vuln scanners see.
+        run: |
+          pkgs=$(go list ./... | grep -v -E '/node_modules/')
+          go build -tags=web $pkgs
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

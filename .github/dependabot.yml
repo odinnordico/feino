@@ -1,10 +1,36 @@
 version: 2
 updates:
-- package-ecosystem: "gomod"
-  directory: "/"
-  schedule:
-    interval: "monthly"
-- package-ecosystem: "npm"
-  directory: "/internal/web/ui"
-  schedule:
-    interval: "monthly"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+
+  - package-ecosystem: "npm"
+    directory: "/internal/web/ui"
+    schedule:
+      interval: "monthly"
+    # Group packages that must move in lockstep; otherwise Dependabot can
+    # produce PRs that fail npm's peer-dependency resolver.
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      eslint:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

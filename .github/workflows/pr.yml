@@ -100,7 +100,10 @@ jobs:
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: govulncheck
         id: vuln
-        run: govulncheck ./...
+        # Same gitignore-style exclusion as Makefile's $(GO_PKGS).
+        run: |
+          pkgs=$(go list ./... | grep -v -E '/node_modules/')
+          govulncheck $pkgs
       - name: Vuln summary
         if: always()
         run: |

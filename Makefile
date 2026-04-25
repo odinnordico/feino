@@ -20,6 +20,13 @@ WEB_PORT ?= 7700
 COVER_OUT  := coverage.out
 COVER_HTML := coverage.html
 
+# Package list with gitignore-style exclusions baked in.
+# Excluded: node_modules/ — npm-vendored Go subtrees (e.g. flatted/golang/...)
+#          that ship inside frontend deps and aren't part of feino.
+# Use $(GO_PKGS) anywhere `./...` would otherwise expand into ignored paths.
+GO_IGNORE_PATTERN := /node_modules/
+GO_PKGS := $(shell go list ./... 2>/dev/null | grep -v -E '$(GO_IGNORE_PATTERN)')
+
 .DEFAULT_GOAL := help
 
 # ── Help ─────────────────────────────────────────────────────────────
@@ -138,13 +145,13 @@ run-repl: build-dev
 
 # ── Tests ─────────────────────────────────────────────────────────────
 test:
-	go test ./...
+	go test $(GO_PKGS)
 
 test-race:
-	go test -race ./...
+	go test -race $(GO_PKGS)
 
 test-cover:
-	go test -coverprofile=$(COVER_OUT) ./...
+	go test -coverprofile=$(COVER_OUT) $(GO_PKGS)
 	go tool cover -html=$(COVER_OUT) -o $(COVER_HTML)
 	@echo "Coverage report: $(COVER_HTML)"
 
@@ -156,30 +163,30 @@ test-agent:
 
 # ── Code quality ─────────────────────────────────────────────────────
 vet:
-	go vet ./...
+	go vet $(GO_PKGS)
 
 lint: vet
 	@if command -v staticcheck >/dev/null 2>&1; then \
-		staticcheck ./...; \
+		staticcheck $(GO_PKGS); \
 	else \
 		echo "staticcheck not found — run: go install honnef.co/go/tools/cmd/staticcheck@latest"; \
 	fi
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run ./...; \
+		golangci-lint run $(GO_PKGS); \
 	else \
 		echo "golangci-lint not found — see https://golangci-lint.run/usage/install/"; \
 	fi
 
 fmt:
-	go fmt ./...
+	go fmt $(GO_PKGS)
 	@if command -v goimports >/dev/null 2>&1; then \
-		goimports -w $$(find . -name '*.go' -not -path './gen/*'); \
+		goimports -w $$(find . -name '*.go' -not -path './gen/*' -not -path '*/node_modules/*'); \
 	else \
 		echo "goimports not found — run: go install golang.org/x/tools/cmd/goimports@latest"; \
 	fi
 
 fix:
-	go fix ./...
+	go fix $(GO_PKGS)
 
 tidy:
 	go mod tidy
@@ -189,9 +196,9 @@ verify:
 
 # ── CI ────────────────────────────────────────────────────────────────
 ci: proto web
-	go test -race ./...
-	go vet ./...
-	@if command -v staticcheck >/dev/null 2>&1; then staticcheck ./...; fi
+	go test -race $(GO_PKGS)
+	go vet $(GO_PKGS)
+	@if command -v staticcheck >/dev/null 2>&1; then staticcheck $(GO_PKGS); fi
 	go build -tags web ./cmd/feino
 
 # ── Clean ─────────────────────────────────────────────────────────────

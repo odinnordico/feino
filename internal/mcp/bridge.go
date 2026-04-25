@@ -50,29 +50,28 @@ func (a *mcpToolAdapter) GetParameters() map[string]any {
 // Run calls the MCP tool synchronously and converts the response into a
 // tools.ToolResult. Text content blocks from the server are concatenated into
 // a single string; other content types (images, resources) are silently
-// skipped. When the server sets IsError on the result, the returned
-// ToolResult.GetError() will be non-nil.
+// skipped. When the server sets IsError on the result, [Session.CallTool]
+// surfaces it as a Go error and Run propagates it via GetError().
+//
+// The returned ToolResult always carries the concatenated text content when
+// available, even on error, so callers can show the tool's own error message
+// rather than a generic wrapper.
 func (a *mcpToolAdapter) Run(params map[string]any) tools.ToolResult {
 	a.session.logger.Debug("mcp: running tool via bridge", "tool", a.tool.Name)
 	result, err := a.session.CallTool(context.Background(), a.tool.Name, params)
 	if err != nil {
 		a.session.logger.Error("mcp: bridge tool call failed", "tool", a.tool.Name, "error", err)
-		return &adapterResult{err: err}
 	}
 
 	var sb strings.Builder
-	for _, c := range result.Content {
-		if tc, ok := c.(*sdkmcp.TextContent); ok {
-			sb.WriteString(tc.Text)
+	if result != nil {
+		for _, c := range result.Content {
+			if tc, ok := c.(*sdkmcp.TextContent); ok {
+				sb.WriteString(tc.Text)
+			}
 		}
 	}
-
-	text := sb.String()
-	var callErr error
-	if result.IsError {
-		callErr = fmt.Errorf("mcp tool %q: %s", a.tool.Name, text)
-	}
-	return &adapterResult{content: text, err: callErr}
+	return &adapterResult{content: sb.String(), err: err}
 }
 
 // adapterResult is a minimal tools.ToolResult backed by a string content
