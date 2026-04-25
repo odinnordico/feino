@@ -16,8 +16,8 @@ type mockTool struct {
 	desc string
 }
 
-func (m *mockTool) GetName() string              { return m.name }
-func (m *mockTool) GetDescription() string       { return m.desc }
+func (m *mockTool) GetName() string               { return m.name }
+func (m *mockTool) GetDescription() string        { return m.desc }
 func (m *mockTool) GetParameters() map[string]any { return nil }
 func (m *mockTool) Run(_ map[string]any) tools.ToolResult {
 	return tools.NewToolResult(nil, nil)

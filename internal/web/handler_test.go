@@ -67,9 +67,9 @@ func (m *testModel) Infer(ctx context.Context, _ []model.Message, _ model.InferO
 }
 
 type testProvider struct {
-	id    string
-	mdl   *testModel
-	cb    *provider.CircuitBreaker
+	id  string
+	mdl *testModel
+	cb  *provider.CircuitBreaker
 }
 
 func newTestProvider(id, modelName, text string) *testProvider {

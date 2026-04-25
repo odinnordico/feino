@@ -138,8 +138,8 @@ func writeSSE(w http.ResponseWriter, resp response) {
 		emit(map[string]any{
 			"id": "chatcmpl-demo",
 			"choices": []any{map[string]any{
-				"index": 0,
-				"delta": map[string]any{"role": "assistant", "content": resp.text},
+				"index":         0,
+				"delta":         map[string]any{"role": "assistant", "content": resp.text},
 				"finish_reason": nil,
 			}},
 		})

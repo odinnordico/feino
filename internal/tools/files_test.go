@@ -189,9 +189,9 @@ func TestFileEdit(t *testing.T) {
 			wantFile:    "hello Go",
 		},
 		{
-			name:    "ambiguous match errors by default",
-			params:  map[string]any{"path": writeFile("ambig.txt", "foo foo foo"), "old_string": "foo", "new_string": "bar"},
-			wantErr: true,
+			name:     "ambiguous match errors by default",
+			params:   map[string]any{"path": writeFile("ambig.txt", "foo foo foo"), "old_string": "foo", "new_string": "bar"},
+			wantErr:  true,
 			wantFile: "foo foo foo", // file must be unchanged
 		},
 		{

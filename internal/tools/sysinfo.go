@@ -45,23 +45,23 @@ type sysInfoHost struct {
 }
 
 type sysInfoCPU struct {
-	LogicalCount  int      `json:"logical_count"`
-	PhysicalCount int      `json:"physical_count"`
-	ModelName     string   `json:"model_name"`
-	Mhz           float64  `json:"mhz"`
-	UsagePercent  float64  `json:"usage_percent"` // system-wide, averaged over 200 ms
+	LogicalCount  int     `json:"logical_count"`
+	PhysicalCount int     `json:"physical_count"`
+	ModelName     string  `json:"model_name"`
+	Mhz           float64 `json:"mhz"`
+	UsagePercent  float64 `json:"usage_percent"` // system-wide, averaged over 200 ms
 }
 
 type sysInfoMemory struct {
-	TotalBytes     uint64  `json:"total_bytes"`
-	TotalHuman     string  `json:"total_human"`
-	UsedBytes      uint64  `json:"used_bytes"`
-	UsedHuman      string  `json:"used_human"`
-	AvailableBytes uint64  `json:"available_bytes"`
-	AvailableHuman string  `json:"available_human"`
-	UsedPercent    float64 `json:"used_percent"`
-	SwapTotalBytes uint64  `json:"swap_total_bytes,omitempty"`
-	SwapUsedBytes  uint64  `json:"swap_used_bytes,omitempty"`
+	TotalBytes      uint64  `json:"total_bytes"`
+	TotalHuman      string  `json:"total_human"`
+	UsedBytes       uint64  `json:"used_bytes"`
+	UsedHuman       string  `json:"used_human"`
+	AvailableBytes  uint64  `json:"available_bytes"`
+	AvailableHuman  string  `json:"available_human"`
+	UsedPercent     float64 `json:"used_percent"`
+	SwapTotalBytes  uint64  `json:"swap_total_bytes,omitempty"`
+	SwapUsedBytes   uint64  `json:"swap_used_bytes,omitempty"`
 	SwapUsedPercent float64 `json:"swap_used_percent,omitempty"`
 }
 

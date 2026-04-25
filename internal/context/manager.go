@@ -102,8 +102,8 @@ type FileSystemContextManager struct {
 	skills           []Skill
 
 	// User profile and agent memory — injected by the TUI/REPL at startup.
-	userProfile  string       // pre-formatted by config.UserProfileConfig.FormatPrompt()
-	memoryStore  memoryStore  // may be nil when no store is configured
+	userProfile string      // pre-formatted by config.UserProfileConfig.FormatPrompt()
+	memoryStore memoryStore // may be nil when no store is configured
 }
 
 // memoryStore is the subset of memory.Store used by the context manager.
