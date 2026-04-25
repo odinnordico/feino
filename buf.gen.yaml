@@ -12,10 +12,10 @@ plugins:
 
   # TypeScript protobuf messages (for the React app)
   - plugin: buf.build/bufbuild/es:v2.2.3
-    out: web/src/gen
+    out: internal/web/ui/src/gen
     opt: target=ts,import_extension=none
 
   # TypeScript Connect client
   - plugin: buf.build/connectrpc/es:v2.0.0
-    out: web/src/gen
+    out: internal/web/ui/src/gen
     opt: target=ts,import_extension=none

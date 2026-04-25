@@ -1,0 +1,66 @@
+name: Release PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".goreleaser.yml"
+      - ".github/workflows/release-pr.yml"
+      - ".github/workflows/release.yml"
+      - ".github/actions/setup-go/**"
+      - ".github/actions/setup-node/**"
+
+concurrency:
+  group: release-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: GoReleaser check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: GoReleaser config check
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check
+
+  snapshot:
+    name: GoReleaser snapshot build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-node
+
+      - name: Build embedded frontend
+        working-directory: internal/web/ui
+        run: npm run build
+
+      - name: GoReleaser snapshot
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish,sign,announce
+
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-snapshot
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          retention-days: 7

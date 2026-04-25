@@ -10,18 +10,45 @@ on:
         type: boolean
         default: false
 
+# Default = read-only. Each job widens what it actually needs.
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
+# cancel-in-progress is intentionally false: a release in flight should
+# never be killed by a subsequent push (e.g. accidental force-tag) so that
+# partially-published artifacts and SLSA attestations don't go orphaned.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  validate-tag:
+    name: Validate tag is semver
+    # Run whenever the ref looks like a tag — covers both `push` of v* and
+    # `workflow_dispatch` invoked against a tag for re-running a release.
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check tag format
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$tag' is not semver. Expected vMAJOR.MINOR.PATCH[-prerelease][+build]"
+            exit 1
+          fi
+          echo "✅ Tag '$tag' is valid semver." >> "$GITHUB_STEP_SUMMARY"
+
   test:
     name: Test gate
+    needs: validate-tag
+    # Run when validation passed, OR when it was skipped (e.g. workflow_dispatch
+    # on a branch for a dry-run snapshot build).
+    if: |
+      always() && (
+        needs.validate-tag.result == 'success' ||
+        needs.validate-tag.result == 'skipped'
+      )
     uses: ./.github/workflows/test.yml
     permissions:
       contents: read
@@ -31,34 +58,23 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: internal/web/ui/package-lock.json
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: buf generate
-        run: buf generate
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-node
 
       - name: Build embedded frontend
         working-directory: internal/web/ui
-        run: |
-          npm ci
-          npm run build
+        run: npm run build
 
       - name: Run GoReleaser
         id: goreleaser
@@ -68,12 +84,12 @@ jobs:
           version: "~> v2"
           args: >-
             release --clean
-            ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--snapshot --skip=publish,announce,sign' || '' }}
+            ${{ env.IS_DRY_RUN == 'true' && '--snapshot --skip=publish,announce,sign' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate SLSA build provenance
-        if: github.event_name == 'push' || !inputs.dry_run
+        if: env.IS_DRY_RUN != 'true'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
@@ -82,10 +98,12 @@ jobs:
             dist/checksums.txt
 
       - name: Upload dry-run artifacts
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        if: env.IS_DRY_RUN == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: dry-run-${{ github.ref_name }}
+          # Use run_id rather than ref_name so branch refs like 'feature/xyz'
+          # don't produce invalid artifact names (slashes are not allowed).
+          name: dry-run-${{ github.run_id }}
           path: |
             dist/*.tar.gz
             dist/*.zip

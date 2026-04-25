@@ -29,8 +29,5 @@ coverage.html
 internal/web/ui/node_modules/
 internal/web/ui/dist/
 
-# Protobuf generated code
-gen/
-
 # Buf cache
 .buf/

@@ -1,0 +1,155 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Go ───────────────────────────────────────────────────────────────
+  proto:
+    name: Proto lint & drift check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: buf lint
+      - run: buf format --diff --exit-code
+      - name: Verify committed gen/ matches proto/
+        run: |
+          buf generate
+          if ! git diff --quiet -- gen internal/web/ui/src/gen; then
+            echo "::error::Committed generated code is out of date. Run 'buf generate' locally and commit."
+            git --no-pager diff -- gen internal/web/ui/src/gen
+            exit 1
+          fi
+
+  go-tidy:
+    name: go mod tidy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - name: Verify go.mod and go.sum are tidy
+        run: |
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "::error::go.mod or go.sum is not tidy — run 'go mod tidy' locally and commit"
+            git --no-pager diff go.mod go.sum
+            exit 1
+          fi
+
+  go-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - name: Verify .golangci.yml schema
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: config verify
+      - run: go vet ./...
+      - uses: golangci/golangci-lint-action@v6
+        id: lint
+        with:
+          version: latest
+          args: --timeout=5m
+      - name: Lint summary
+        if: always()
+        run: |
+          {
+            echo "### golangci-lint"
+            if [[ "${{ steps.lint.outcome }}" == "success" ]]; then
+              echo "✅ No issues found."
+            else
+              echo "❌ Issues reported — see job log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  go-build:
+    name: Go build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - run: go build -o /tmp/feino ./cmd/feino
+
+  # ── Web ──────────────────────────────────────────────────────────────
+  web-lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: write
+    defaults:
+      run:
+        working-directory: internal/web/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node
+      - name: Verify eslint binary is available
+        run: npx --no-install eslint --version
+      - name: ESLint
+        id: lint
+        run: npm run lint
+      - name: ESLint (SARIF for Security tab)
+        if: always() && steps.lint.outcome != 'cancelled'
+        continue-on-error: true
+        run: npm run lint:sarif
+      - name: Upload SARIF results
+        if: always() && hashFiles('internal/web/ui/eslint-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: internal/web/ui/eslint-results.sarif
+          category: eslint
+      - name: Lint summary
+        if: always()
+        run: |
+          {
+            echo "### ESLint"
+            if [[ "${{ steps.lint.outcome }}" == "success" ]]; then
+              echo "✅ No issues found."
+            else
+              echo "❌ Issues reported — findings posted to the Security tab."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  web-typecheck:
+    name: TypeScript typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: internal/web/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node
+      - run: npm run typecheck
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: internal/web/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node
+      - run: npm run build

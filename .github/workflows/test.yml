@@ -21,21 +21,28 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/setup-go
+      - name: go test (race + coverage)
+        run: |
+          go test -race -count=1 \
+            -coverprofile=coverage.out -covermode=atomic \
+            ./...
+      - name: Coverage summary
+        if: always() && hashFiles('coverage.out') != ''
+        run: |
+          pct=$(go tool cover -func=coverage.out | tail -n1 | awk '{print $3}')
+          {
+            echo "### Go test coverage"
+            echo ""
+            echo "**Total:** $pct"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage profile
+        if: always() && hashFiles('coverage.out') != ''
+        uses: actions/upload-artifact@v4
         with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: buf generate
-        run: buf generate
-
-      - name: go test -race
-        run: go test -race -count=1 ./...
+          name: go-coverage
+          path: coverage.out
+          retention-days: 30
 
   web:
     name: Web tests (vitest)
@@ -46,25 +53,18 @@ jobs:
         working-directory: internal/web/ui
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: internal/web/ui/package-lock.json
-
-      - uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: buf generate (TS client)
-        working-directory: ${{ github.workspace }}
-        run: buf generate
-
-      - run: npm ci
-      - run: npm test -- --run
+      - uses: ./.github/actions/setup-node
+      - name: vitest
+        id: vitest
+        run: npm test -- --run
+      - name: Test summary
+        if: always()
+        run: |
+          {
+            echo "### Web tests (vitest)"
+            if [[ "${{ steps.vitest.outcome }}" == "success" ]]; then
+              echo "✅ All tests passed."
+            else
+              echo "❌ Tests failed — see job log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

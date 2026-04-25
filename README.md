@@ -8,6 +8,10 @@
 
 **A Go AI agent CLI** — multi-provider, multi-UI, tool-calling agent with a terminal UI, a browser-based interface, and a headless REPL. One binary, three modes, zero vendor lock-in.
 
+[![PR](https://github.com/odinnordico/feino/actions/workflows/pr.yml/badge.svg)](https://github.com/odinnordico/feino/actions/workflows/pr.yml)
+[![Test](https://github.com/odinnordico/feino/actions/workflows/test.yml/badge.svg)](https://github.com/odinnordico/feino/actions/workflows/test.yml)
+[![CodeQL](https://github.com/odinnordico/feino/actions/workflows/codeql.yml/badge.svg)](https://github.com/odinnordico/feino/actions/workflows/codeql.yml)
+[![Release](https://github.com/odinnordico/feino/actions/workflows/release.yml/badge.svg)](https://github.com/odinnordico/feino/actions/workflows/release.yml)
 [![Go](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/odinnordico/feino)](https://goreportcard.com/report/github.com/odinnordico/feino)

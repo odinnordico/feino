@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "lint": "eslint . --max-warnings=0",
+    "lint:sarif": "eslint . --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.11.0",
+    "@microsoft/eslint-formatter-sarif": "^3.1.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
