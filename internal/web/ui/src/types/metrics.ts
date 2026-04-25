@@ -1,15 +1,15 @@
-export interface TokenPoint {
+export type TokenPoint = {
   turn: number;
   prompt: number;
   completion: number;
 }
 
-export interface LatencyPoint {
+export type LatencyPoint = {
   turn: number;
   ms: number;
 }
 
-export interface UsageSummary {
+export type UsageSummary = {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;

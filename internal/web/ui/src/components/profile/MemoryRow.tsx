@@ -4,7 +4,7 @@ import { useMemory } from "../../hooks/useMemory";
 import { Button } from "../shared/Button";
 import { Modal } from "../shared/Modal";
 
-interface MemoryRowProps {
+type MemoryRowProps = {
   entry: MemoryEntryProto;
   onDeleted: (id: string) => void;
   onUpdated: (entry: MemoryEntryProto) => void;
@@ -18,7 +18,7 @@ export function MemoryRow({ entry, onDeleted, onUpdated }: MemoryRowProps) {
 
   async function save() {
     const updated = await updateMemory(entry.id, draft);
-    if (updated) onUpdated(updated);
+    if (updated) {onUpdated(updated);}
     setEditing(false);
   }
 

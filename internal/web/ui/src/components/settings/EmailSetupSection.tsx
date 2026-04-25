@@ -1,7 +1,7 @@
 import type { EmailServiceConfigProto } from "../../gen/feino/v1/feino_pb";
 import { TextInput } from "../shared/TextInput";
 
-interface Props {
+type Props = {
   email: EmailServiceConfigProto | undefined;
   onChange: (update: Partial<EmailServiceConfigProto>) => void;
 }

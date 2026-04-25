@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import { remarkPlugins, rehypePlugins } from "../../lib/markdown";
 
-interface MarkdownRendererProps {
+type MarkdownRendererProps = {
   content: string;
 }
 

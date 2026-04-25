@@ -1,4 +1,4 @@
-interface TextInputProps {
+type TextInputProps = {
   value: string | number;
   onChange: (v: string) => void;
   placeholder?: string;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ConfigProto } from "../gen/feino/v1/feino_pb";
 
-interface ConfigState {
+type ConfigState = {
   config: ConfigProto | null;
   dirty:  boolean;
 

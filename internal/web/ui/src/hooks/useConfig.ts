@@ -14,7 +14,7 @@ export function useConfig() {
 
   const loadConfig = useCallback(async () => {
     const res = await feinoClient.getConfig(create(GetConfigRequestSchema, {}));
-    if (res.config) setConfig(res.config);
+    if (res.config) {setConfig(res.config);}
     return res.config ?? null;
   }, [setConfig]);
 

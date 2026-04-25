@@ -22,7 +22,7 @@ export function useSession() {
         const res = await feinoClient.getSessionState(
           create(GetSessionStateRequestSchema, {})
         );
-        if (cancelled) return;
+        if (cancelled) {return;}
         setOffline(false);
         setAgentState(res.reactState);
         setBusy(res.busy);
@@ -30,7 +30,7 @@ export function useSession() {
           setBypass(res.bypassActive, null, false);
         }
       } catch {
-        if (!cancelled) setOffline(true);
+        if (!cancelled) {setOffline(true);}
       }
     }
 

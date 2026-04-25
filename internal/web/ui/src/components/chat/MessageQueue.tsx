@@ -3,7 +3,7 @@ import { useChatStore } from "../../store/chatStore";
 /** Shows a queue position pill when the session is busy and this message is queued. */
 export function MessageQueueBadge() {
   const pos = useChatStore((s) => s.queuePosition);
-  if (pos === 0) return null;
+  if (pos === 0) {return null;}
 
   return (
     <div

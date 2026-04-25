@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 
-interface CollapsibleProps {
+type CollapsibleProps = {
   header: ReactNode;
   children: ReactNode;
   defaultOpen?: boolean;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-interface CodeBlockProps {
+type CodeBlockProps = {
   code: string;
   language?: string;
   maxLines?: number;

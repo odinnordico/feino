@@ -2,7 +2,7 @@ import { useSessionStore } from "../../store/sessionStore";
 
 export function OfflineBanner() {
   const offline = useSessionStore((s) => s.offline);
-  if (!offline) return null;
+  if (!offline) {return null;}
 
   return (
     <div

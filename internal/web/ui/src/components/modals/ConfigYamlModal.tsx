@@ -4,7 +4,7 @@ import { Modal } from "../shared/Modal";
 import { Button } from "../shared/Button";
 import { Spinner } from "../shared/Spinner";
 
-interface ConfigYamlModalProps { onClose: () => void; }
+type ConfigYamlModalProps = { onClose: () => void; }
 
 export function ConfigYamlModal({ onClose }: ConfigYamlModalProps) {
   const { getYAML } = useConfig();

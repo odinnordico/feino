@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type ToastKind = "success" | "error" | "info" | "warning";
 
-export interface Toast {
+export type Toast = {
   id: string;
   kind: ToastKind;
   message: string;
@@ -10,7 +10,7 @@ export interface Toast {
   duration: number;
 }
 
-interface ToastState {
+type ToastState = {
   toasts: Toast[];
   push: (kind: ToastKind, message: string, duration?: number) => void;
   dismiss: (id: string) => void;

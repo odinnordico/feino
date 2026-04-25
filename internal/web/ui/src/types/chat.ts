@@ -1,16 +1,16 @@
 export type MessageRole = "user" | "assistant" | "system" | "error";
 
-export interface TextPart {
+export type TextPart = {
   kind: "text";
   text: string;
 }
 
-export interface ThoughtPart {
+export type ThoughtPart = {
   kind: "thought";
   text: string;
 }
 
-export interface ToolCallPart {
+export type ToolCallPart = {
   kind: "tool_call";
   callId: string;
   name: string;
@@ -21,14 +21,14 @@ export interface ToolCallPart {
 
 export type MessagePart = TextPart | ThoughtPart | ToolCallPart;
 
-export interface RenderedMessage {
+export type RenderedMessage = {
   id: string;
   role: MessageRole;
   parts: MessagePart[];
   timestamp: number;
 }
 
-export interface PendingPermission {
+export type PendingPermission = {
   requestId: string;
   toolName: string;
   required: string;

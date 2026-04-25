@@ -5,7 +5,7 @@ export type PermissionLevel = "read" | "write" | "bash" | "danger_zone";
 export type Theme = "dark" | "light" | "auto" | "neo";
 export type CommStyle = "concise" | "detailed" | "technical" | "friendly";
 
-export interface ProviderInfo {
+export type ProviderInfo = {
   name: string;
   label: string;
   hasKey: boolean;

@@ -1,6 +1,6 @@
 import type { AgentConfigProto } from "../../gen/feino/v1/feino_pb";
 
-interface Props {
+type Props = {
   agent: AgentConfigProto | undefined;
   onChange: (update: Partial<AgentConfigProto>) => void;
 }

@@ -9,7 +9,7 @@ const DURATIONS = [
   { label: "Session", sec: 0, session: true },
 ];
 
-interface YoloModalProps { onClose: () => void; }
+type YoloModalProps = { onClose: () => void; }
 
 export function YoloModal({ onClose }: YoloModalProps) {
   const { activate } = useBypass();

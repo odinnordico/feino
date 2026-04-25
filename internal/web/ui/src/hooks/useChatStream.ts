@@ -24,7 +24,7 @@ export function useChatStream() {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (busy) return;
+      if (busy) {return;}
 
       // Add user message immediately.
       const userMsg: RenderedMessage = {
@@ -56,7 +56,7 @@ export function useChatStream() {
 
         for await (const evt of stream) {
           const e = evt.event;
-          if (!e.case) continue;
+          if (!e.case) {continue;}
 
           switch (e.case) {
             case "partReceived": {

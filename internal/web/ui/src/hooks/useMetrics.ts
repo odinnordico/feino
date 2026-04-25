@@ -27,7 +27,7 @@ export function useMetrics() {
           );
           attempt = 0; // reset on successful connection
           for await (const evt of stream) {
-            if (evt.latencyMs > 0) pushLatency(evt.latencyMs);
+            if (evt.latencyMs > 0) {pushLatency(evt.latencyMs);}
             if (evt.usage) {
               pushTokens(
                 evt.usage.promptTokens,
@@ -37,9 +37,9 @@ export function useMetrics() {
             }
           }
         } catch (err) {
-          if (abort.signal.aborted) break;
+          if (abort.signal.aborted) {break;}
           const isCanceled = err instanceof ConnectError && err.code === Code.Canceled;
-          if (isCanceled) break;
+          if (isCanceled) {break;}
 
           attempt++;
           if (attempt >= MAX_RETRIES) {

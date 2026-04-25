@@ -35,7 +35,7 @@ export function ProfilePage() {
   }, [loadConfig]);
 
   async function handleSave() {
-    if (!config) return;
+    if (!config) {return;}
     await saveConfig({
       ...config,
       user: create(UserProfileConfigProtoSchema, { ...proto(config.user), name, timezone, communicationStyle: style }),
@@ -44,7 +44,7 @@ export function ProfilePage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  if (loading) return <div style={{ padding: "24px" }}><Spinner /></div>;
+  if (loading) {return <div style={{ padding: "24px" }}><Spinner /></div>;}
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto", padding: "24px", gap: "32px" }}>

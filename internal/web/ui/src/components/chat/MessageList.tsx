@@ -13,7 +13,7 @@ export function MessageList() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   // Only scroll when message count changes, not on content updates.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [messages.length]);
 
   const lastAssistantIdx = messages.reduce(

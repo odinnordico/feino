@@ -37,7 +37,7 @@ export function MemoryManager() {
   useEffect(() => { load(); }, [load]);
 
   async function addMemory() {
-    if (!newContent.trim()) return;
+    if (!newContent.trim()) {return;}
     const entry = await writeMemory(newCat, newContent.trim());
     if (entry) { setEntries((e) => [entry, ...e]); setNewContent(""); }
   }

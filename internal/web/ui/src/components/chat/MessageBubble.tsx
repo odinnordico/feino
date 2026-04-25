@@ -4,13 +4,13 @@ import { ThoughtBlock } from "./ThoughtBlock";
 import { ToolCallCard } from "./ToolCallCard";
 import { StreamingCursor } from "./StreamingCursor";
 
-interface MessageBubbleProps {
+type MessageBubbleProps = {
   msg: RenderedMessage;
   isStreaming?: boolean;
 }
 
 function toolCallStatus(part: Extract<MessagePart, { kind: "tool_call" }>): "pending" | "running" | "resolved" | "error" {
-  if (part.result === undefined) return "pending";
+  if (part.result === undefined) {return "pending";}
   return part.isError ? "error" : "resolved";
 }
 

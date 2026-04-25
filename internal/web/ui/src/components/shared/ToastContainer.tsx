@@ -64,7 +64,7 @@ function ToastItem({ t }: { t: Toast }) {
 
 export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0) {return null;}
 
   return (
     <div

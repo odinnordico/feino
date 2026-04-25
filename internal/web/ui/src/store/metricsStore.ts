@@ -4,7 +4,7 @@ import type { LatencyPoint, TokenPoint, UsageSummary } from "../types/metrics";
 const MAX_LATENCY = 20;
 const MAX_TOKENS  = 10;
 
-interface MetricsState {
+type MetricsState = {
   latencyHistory: LatencyPoint[];
   tokenHistory:   TokenPoint[];
   currentUsage:   UsageSummary | null;

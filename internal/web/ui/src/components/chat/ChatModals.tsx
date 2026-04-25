@@ -5,13 +5,13 @@ import { ConfigYamlModal } from "../modals/ConfigYamlModal";
 
 export type ModalKind = "yolo" | "theme" | "lang" | "config-yaml" | null;
 
-interface ChatModalsProps {
+type ChatModalsProps = {
   open: ModalKind;
   onClose: () => void;
 }
 
 export function ChatModals({ open, onClose }: ChatModalsProps) {
-  if (!open) return null;
+  if (!open) {return null;}
 
   switch (open) {
     case "yolo":       return <YoloModal onClose={onClose} />;

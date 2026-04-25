@@ -1,11 +1,11 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
 
-interface Props {
+type Props = {
   children: ReactNode;
   fallback?: ReactNode;
 }
 
-interface State {
+type State = {
   error: Error | null;
 }
 
@@ -23,9 +23,9 @@ export class ErrorBoundary extends Component<Props, State> {
   handleRetry = () => this.setState({ error: null });
 
   render() {
-    if (!this.state.error) return this.props.children;
+    if (!this.state.error) {return this.props.children;}
 
-    if (this.props.fallback) return this.props.fallback;
+    if (this.props.fallback) {return this.props.fallback;}
 
     return (
       <div

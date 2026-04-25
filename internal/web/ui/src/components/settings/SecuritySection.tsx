@@ -3,7 +3,7 @@ import type { SecurityConfigProto } from "../../gen/feino/v1/feino_pb";
 
 const PERMISSION_LEVELS = ["read", "write", "bash", "danger_zone"] as const;
 
-interface Props {
+type Props = {
   security: SecurityConfigProto | undefined;
   onChange: (update: Partial<SecurityConfigProto>) => void;
 }
@@ -12,7 +12,7 @@ export function SecuritySection({ security: sec, onChange }: Props) {
   const [newPath, setNewPath] = useState("");
 
   function addPath() {
-    if (!newPath.trim()) return;
+    if (!newPath.trim()) {return;}
     const paths = [...(sec?.allowedPaths ?? []), newPath.trim()];
     onChange({ allowedPaths: paths });
     setNewPath("");

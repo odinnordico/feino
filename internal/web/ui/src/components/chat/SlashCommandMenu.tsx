@@ -1,4 +1,4 @@
-interface SlashCommand {
+type SlashCommand = {
   command: string;
   description: string;
 }
@@ -16,7 +16,7 @@ const COMMANDS: SlashCommand[] = [
   { command: "/yolo",           description: "Enable bypass mode" },
 ];
 
-interface SlashCommandMenuProps {
+type SlashCommandMenuProps = {
   query: string;        // text after "/"
   onSelect: (command: string) => void;
   selectedIdx: number;
@@ -27,7 +27,7 @@ export function SlashCommandMenu({ query, onSelect, selectedIdx }: SlashCommandM
     c.command.toLowerCase().includes(query.toLowerCase())
   );
 
-  if (filtered.length === 0) return null;
+  if (filtered.length === 0) {return null;}
 
   return (
     <div

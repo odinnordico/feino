@@ -9,10 +9,10 @@ export function PermissionModal() {
   const perm = useChatStore((s) => s.pendingPermission);
   const setPendingPermission = useChatStore((s) => s.setPendingPermission);
 
-  if (!perm) return null;
+  if (!perm) {return null;}
 
   async function resolve(approved: boolean) {
-    if (!perm) return;
+    if (!perm) {return;}
     setPendingPermission(null);
     try {
       await feinoClient.resolvePermission(

@@ -1,5 +1,5 @@
 name: Set up Go
-description: Install Go from go.mod with module caching.
+description: Install Go from go.mod with module caching; pin GOTOOLCHAIN=local so CI fails fast instead of silently downloading a newer toolchain.
 
 runs:
   using: composite
@@ -8,3 +8,5 @@ runs:
       with:
         go-version-file: go.mod
         cache: true
+    - shell: bash
+      run: echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"

@@ -56,7 +56,7 @@ export function MetricsPanel() {
   const windowWidth   = useWindowWidth();
   const isMobile      = windowWidth < 768;
 
-  if (!metricsOpen) return null;
+  if (!metricsOpen) {return null;}
 
   // Mobile: slide-up drawer
   if (isMobile) {

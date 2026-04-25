@@ -22,9 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-go
-      - name: go test (race + coverage)
+      - name: go test (race + shuffle + coverage)
         run: |
-          go test -race -count=1 \
+          go test -race -count=1 -shuffle=on \
             -coverprofile=coverage.out -covermode=atomic \
             ./...
       - name: Coverage summary

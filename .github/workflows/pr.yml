@@ -89,6 +89,44 @@ jobs:
       - uses: ./.github/actions/setup-go
       - run: go build -o /tmp/feino ./cmd/feino
 
+  go-vuln:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: govulncheck
+        id: vuln
+        run: govulncheck ./...
+      - name: Vuln summary
+        if: always()
+        run: |
+          {
+            echo "### govulncheck"
+            if [[ "${{ steps.vuln.outcome }}" == "success" ]]; then
+              echo "✅ No known vulnerabilities."
+            else
+              echo "❌ Vulnerabilities reported — see job log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  web-tag-build:
+    name: Go build (-tags=web, embedded frontend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-go
+      - uses: ./.github/actions/setup-node
+      - name: Build embedded frontend
+        working-directory: internal/web/ui
+        run: npm run build
+      - name: go build -tags=web
+        run: go build -tags=web -o /tmp/feino-web ./cmd/feino
+
   # ── Web ──────────────────────────────────────────────────────────────
   web-lint:
     name: ESLint
@@ -153,3 +191,31 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node
       - run: npm run build
+
+  web-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: internal/web/ui
+    steps:
+      - uses: actions/checkout@v4
+      # `install: false` — npm audit reads the lockfile directly, no node_modules needed.
+      - uses: ./.github/actions/setup-node
+        with:
+          install: "false"
+      - name: npm audit (high+)
+        id: audit
+        run: npm audit --audit-level=high
+      - name: Audit summary
+        if: always()
+        run: |
+          {
+            echo "### npm audit (high+)"
+            if [[ "${{ steps.audit.outcome }}" == "success" ]]; then
+              echo "✅ No high-severity advisories."
+            else
+              echo "❌ High-severity advisories reported — see job log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

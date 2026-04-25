@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-interface TooltipProps {
+type TooltipProps = {
   text: string;
   children: ReactNode;
   position?: "top" | "bottom" | "left" | "right";

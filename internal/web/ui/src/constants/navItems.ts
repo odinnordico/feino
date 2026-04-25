@@ -1,4 +1,4 @@
-export interface NavItem {
+export type NavItem = {
   to: string;
   label: string;
   icon: string;

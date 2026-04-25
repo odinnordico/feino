@@ -7,7 +7,7 @@ import { EmptyState } from "../shared/EmptyState";
 import { Modal } from "../shared/Modal";
 
 function formatTime(ts: { seconds: bigint } | undefined): string {
-  if (!ts) return "";
+  if (!ts) {return "";}
   return new Date(Number(ts.seconds) * 1000).toLocaleString();
 }
 
@@ -78,22 +78,22 @@ export function HistoryView() {
             </div>
             {msg.parts.map((part, pi) => {
               const c = part.content;
-              if (!c.case) return null;
-              if (c.case === "text") return (
+              if (!c.case) {return null;}
+              if (c.case === "text") {return (
                 <div key={`${pi}-text`} style={{ color: "var(--color-text)", fontSize: "var(--font-size-sm)", whiteSpace: "pre-wrap" }}>
                   {c.value}
                 </div>
-              );
-              if (c.case === "thought") return (
+              );}
+              if (c.case === "thought") {return (
                 <div key={`${pi}-thought`} style={{ color: "var(--color-thinking)", fontSize: "var(--font-size-xs)", fontStyle: "italic" }}>
                   💭 {c.value}
                 </div>
-              );
-              if (c.case === "toolCall") return (
+              );}
+              if (c.case === "toolCall") {return (
                 <div key={`${pi}-toolCall`} style={{ color: "var(--color-tool)", fontSize: "var(--font-size-xs)", fontFamily: "var(--font-mono)" }}>
                   ⚙ {c.value.name}({c.value.arguments})
                 </div>
-              );
+              );}
               return null;
             })}
           </div>

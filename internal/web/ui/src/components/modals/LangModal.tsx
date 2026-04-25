@@ -16,7 +16,7 @@ const LANGUAGES = [
   { code: "ru",    label: "Русский" },
 ];
 
-interface LangModalProps { onClose: () => void; }
+type LangModalProps = { onClose: () => void; }
 
 export function LangModal({ onClose }: LangModalProps) {
   const { language, setLanguage } = useSessionStore();

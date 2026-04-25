@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { RenderedMessage, PendingPermission } from "../types/chat";
 
-interface ChatState {
+type ChatState = {
   messages: RenderedMessage[];
   busy: boolean;
   agentState: string;
@@ -36,7 +36,7 @@ export const useChatStore = create<ChatState>((set) => ({
   updateLastAssistantMessage: (updater) =>
     set((s) => {
       const idx = [...s.messages].reverse().findIndex((m) => m.role === "assistant");
-      if (idx === -1) return s;
+      if (idx === -1) {return s;}
       const realIdx = s.messages.length - 1 - idx;
       const updated = [...s.messages];
       updated[realIdx] = updater(updated[realIdx]);

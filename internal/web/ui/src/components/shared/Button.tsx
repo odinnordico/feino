@@ -1,8 +1,8 @@
 import type { ButtonHTMLAttributes } from "react";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+type ButtonProps = {
   variant?: "primary" | "ghost" | "danger";
-}
+} & ButtonHTMLAttributes<HTMLButtonElement>
 
 export function Button({ variant = "primary", style, disabled, ...props }: ButtonProps) {
   const base: React.CSSProperties = {

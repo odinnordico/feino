@@ -1,6 +1,6 @@
 import { Collapsible } from "../shared/Collapsible";
 
-interface ThoughtBlockProps {
+type ThoughtBlockProps = {
   text: string;
   isStreaming?: boolean;
 }

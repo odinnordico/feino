@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type BadgeVariant = "primary" | "accent" | "error" | "warning" | "dim" | "thinking" | "tool" | "yolo";
 
-interface BadgeProps {
+type BadgeProps = {
   variant?: BadgeVariant;
   children: ReactNode;
   pulse?: boolean;

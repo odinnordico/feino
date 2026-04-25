@@ -22,7 +22,7 @@ const SLASH_MODAL: Record<string, ModalKind> = {
   "/config": "config-yaml",
 };
 
-interface InputBarProps {
+type InputBarProps = {
   onOpenModal: (kind: ModalKind) => void;
 }
 
@@ -69,9 +69,9 @@ export function InputBar({ onOpenModal }: InputBarProps) {
 
   const submit = useCallback(async () => {
     const msg = text.trim();
-    if (!msg || busy) return;
+    if (!msg || busy) {return;}
     setText("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    if (textareaRef.current) {textareaRef.current.style.height = "auto";}
     await sendMessage(msg);
   }, [text, busy, sendMessage]);
 
@@ -100,8 +100,8 @@ export function InputBar({ onOpenModal }: InputBarProps) {
     setText(val);
     const el = e.target;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-    if (!val.startsWith("/")) detectAtToken(val, cursor);
+    el.style.height = `${Math.min(el.scrollHeight, 160)  }px`;
+    if (!val.startsWith("/")) {detectAtToken(val, cursor);}
   }
 
   function handleSlashSelect(command: string) {
@@ -116,7 +116,7 @@ export function InputBar({ onOpenModal }: InputBarProps) {
       sendMessage(command);
       return;
     }
-    setText(command + " ");
+    setText(`${command  } `);
     textareaRef.current?.focus();
   }
 
@@ -124,7 +124,7 @@ export function InputBar({ onOpenModal }: InputBarProps) {
     // Replace the @token in text with the chosen path
     const before = text.slice(0, atTokenStart);
     const after  = text.slice(atTokenStart + atToken.length + 1); // +1 for @
-    const newText = before + `@${entry}` + after;
+    const newText = `${before  }@${entry}${  after}`;
     setText(newText);
     setAtOpen(false);
     textareaRef.current?.focus();
@@ -132,11 +132,11 @@ export function InputBar({ onOpenModal }: InputBarProps) {
 
   async function handleFileAttach(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {return;}
     e.target.value = "";
     try {
       const token = await uploadFile(file);
-      setText((t) => t + `@${token} `);
+      setText((t) => `${t  }@${token} `);
       textareaRef.current?.focus();
     } catch { /* ignore */ }
   }

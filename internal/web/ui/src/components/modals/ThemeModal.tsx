@@ -13,7 +13,7 @@ const THEMES: { value: Theme; label: string; desc: string }[] = [
   { value: "auto",  label: "Auto",  desc: "Detect background" },
 ];
 
-interface ThemeModalProps { onClose: () => void; }
+type ThemeModalProps = { onClose: () => void; }
 
 export function ThemeModal({ onClose }: ThemeModalProps) {
   const { theme, setTheme } = useSessionStore();

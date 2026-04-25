@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useId, useRef } from "react";
 import ReactDOM from "react-dom";
 
-interface ModalProps {
+type ModalProps = {
   title: string;
   children: ReactNode;
   onClose?: () => void;
@@ -24,11 +24,11 @@ export function Modal({ title, children, onClose }: ModalProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") { onClose?.(); return; }
-      if (e.key !== "Tab") return;
+      if (e.key !== "Tab") {return;}
       const el = dialogRef.current;
-      if (!el) return;
+      if (!el) {return;}
       const focusable = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
+      if (focusable.length === 0) {return;}
       const first = focusable[0];
       const last  = focusable[focusable.length - 1];
       if (e.shiftKey) {
@@ -44,7 +44,7 @@ export function Modal({ title, children, onClose }: ModalProps) {
   // Focus first focusable element on mount
   useEffect(() => {
     const el = dialogRef.current;
-    if (!el) return;
+    if (!el) {return;}
     const first = el.querySelector<HTMLElement>(FOCUSABLE);
     first?.focus();
   }, []);

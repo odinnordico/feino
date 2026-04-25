@@ -44,11 +44,11 @@ export function SettingsPanel() {
 
   useEffect(() => {
     setLoading(true);
-    loadConfig().then((cfg) => { if (cfg) setDraft(cfg); }).finally(() => setLoading(false));
+    loadConfig().then((cfg) => { if (cfg) {setDraft(cfg);} }).finally(() => setLoading(false));
   }, [loadConfig]);
 
   async function handleSave() {
-    if (!draft) return;
+    if (!draft) {return;}
     setSaving(true);
     try {
       await saveConfig(draft);
@@ -70,11 +70,11 @@ export function SettingsPanel() {
     setDraft((d) => d ? { ...d, [key]: val } : d);
   }, []);
 
-  if (loading || !draft) return (
+  if (loading || !draft) {return (
     <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px", maxWidth: "520px" }}>
       <SkeletonLines count={5} lastWidth="40%" />
     </div>
-  );
+  );}
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "24px" }}>

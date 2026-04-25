@@ -1,9 +1,9 @@
-interface PillOption {
+type PillOption = {
   value: string;
   label: string;
 }
 
-interface PillButtonGroupProps {
+type PillButtonGroupProps = {
   options: PillOption[];
   value: string;
   onChange: (v: string) => void;

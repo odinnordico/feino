@@ -14,7 +14,7 @@ function proto<T extends object>(msg: T | undefined): Omit<T, "$typeName" | "$un
   return rest as Omit<T, "$typeName" | "$unknown">;
 }
 
-interface Props {
+type Props = {
   providers: ProvidersConfigProto | undefined;
   onChange: (update: Partial<ProvidersConfigProto>) => void;
 }

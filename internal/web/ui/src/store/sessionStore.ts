@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Theme } from "../types/config";
 
-interface SessionState {
+type SessionState = {
   theme:          Theme;
   language:       string;
   bypassActive:   boolean;

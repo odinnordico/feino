@@ -3,7 +3,7 @@ import { Badge } from "../shared/Badge";
 import { CodeBlock } from "../shared/CodeBlock";
 import type { ToolCallPart } from "../../types/chat";
 
-interface ToolCallCardProps {
+type ToolCallCardProps = {
   part: ToolCallPart;
   status: "pending" | "running" | "resolved" | "error";
 }

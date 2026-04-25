@@ -1,14 +1,14 @@
 import type { FileEntry } from "../../gen/feino/v1/feino_pb";
 import { formatBytes } from "../../lib/utils";
 
-interface AtPathMenuProps {
+type AtPathMenuProps = {
   entries: FileEntry[];
   onSelect: (path: string) => void;
   selectedIdx: number;
 }
 
 export function AtPathMenu({ entries, onSelect, selectedIdx }: AtPathMenuProps) {
-  if (entries.length === 0) return null;
+  if (entries.length === 0) {return null;}
 
   return (
     <div
