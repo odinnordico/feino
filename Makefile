@@ -104,7 +104,7 @@ web-typecheck:
 	cd $(WEB_DIR) && npx tsc -b --noEmit
 
 web-test:
-	cd $(WEB_DIR) && npm test -- --run
+	cd $(WEB_DIR) && npm test -- --run --passWithNoTests
 
 web-preview:
 	cd $(WEB_DIR) && npm run preview

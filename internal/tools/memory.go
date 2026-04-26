@@ -32,7 +32,8 @@ func newMemoryWriteTool(store memory.Store, logger *slog.Logger) Tool {
 			"Categories: profile (identity), preference (how they like things done), "+
 			"fact (environment / work context), note (free-form).",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"category": map[string]any{
 					"type":        "string",
@@ -84,7 +85,8 @@ func newMemoryListTool(store memory.Store, logger *slog.Logger) Tool {
 		"List stored memories. Optionally filter by category or search for a keyword. "+
 			"Returns entries with their IDs — use these IDs with memory_update or memory_forget.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"category": map[string]any{
 					"type":        "string",
@@ -153,7 +155,8 @@ func newMemoryUpdateTool(store memory.Store, logger *slog.Logger) Tool {
 			"Use this instead of forget + write when correcting or refining a fact. "+
 			"The category cannot be changed; delete and re-create for that.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"id": map[string]any{
 					"type":        "string",
@@ -200,7 +203,8 @@ func newMemoryForgetTool(store memory.Store, logger *slog.Logger) Tool {
 			"Use memory_list to find the ID first. "+
 			"Prefer memory_update when the content is wrong but the fact category is right.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"id": map[string]any{
 					"type":        "string",

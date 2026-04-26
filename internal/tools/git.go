@@ -41,7 +41,8 @@ func runGit(repoPath string, args ...string) (string, error) {
 
 func newGitStatusTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"repo_path": map[string]any{
 				"type":        "string",
@@ -71,7 +72,8 @@ func newGitStatusTool(logger *slog.Logger) Tool {
 
 func newGitLogTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"repo_path": map[string]any{
 				"type":        "string",
@@ -106,7 +108,8 @@ func newGitLogTool(logger *slog.Logger) Tool {
 
 func newGitDiffTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"repo_path": map[string]any{
 				"type":        "string",
@@ -144,7 +147,8 @@ func newGitDiffTool(logger *slog.Logger) Tool {
 
 func newGitBlameTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"file_path": map[string]any{
 				"type":        "string",

@@ -123,7 +123,8 @@ func newCurrencyRatesTool(logger *slog.Logger) Tool {
 		"Get exchange rates for a base currency using the Frankfurter API (ECB data, no API key required). "+
 			"Returns rates for the requested date or the latest available business day.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"base": map[string]any{
 					"type":        "string",
@@ -195,7 +196,8 @@ func newCurrencyConvertTool(logger *slog.Logger) Tool {
 		"Convert an amount from one currency to one or more target currencies using ECB rates via Frankfurter (no API key required). "+
 			"Returns the exchange rate and converted amount for each target.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"amount": map[string]any{
 					"type":        "number",

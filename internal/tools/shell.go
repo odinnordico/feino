@@ -16,7 +16,8 @@ func NewShellTools(logger *slog.Logger) []Tool {
 
 func newShellExecTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"command": map[string]any{
 				"type":        "string",

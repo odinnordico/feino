@@ -541,3 +541,43 @@ func buildToolSet(t *testing.T, mb imapMailbox, mailer smtpMailer, store credent
 
 // Verify time import used by fixture.
 var _ = time.RFC3339
+
+// TestEmailTools_AllSchemasRejectExtraProperties is the email-package mirror
+// of internal/tools/schemas_test.go. Email tools are wired into agents by a
+// separate factory (NewEmailTools requires service config + credential store)
+// so they don't flow through NewNativeTools — we test them here instead.
+//
+// Why we care: see schemas_test.go in the parent package. Without
+// `additionalProperties: false`, an LLM that hallucinates a parameter name
+// (e.g. `cc_list` instead of `cc`) gets silently accepted, the field is
+// dropped, and our handler runs with the real argument missing.
+func TestEmailTools_AllSchemasRejectExtraProperties(t *testing.T) {
+	cfg := config.EmailServiceConfig{Address: "user@example.com"}
+	store := newEmptyStore(t)
+	all := NewEmailTools(cfg, store, nil)
+	if len(all) == 0 {
+		t.Fatal("NewEmailTools returned no tools")
+	}
+	for _, tool := range all {
+		name := tool.GetName()
+		t.Run(name, func(t *testing.T) {
+			schema := tool.GetParameters()
+			if schema == nil {
+				t.Fatalf("%s: GetParameters returned nil", name)
+			}
+			ap, present := schema["additionalProperties"]
+			if !present {
+				t.Errorf("%s: schema is missing additionalProperties (must be false)", name)
+				return
+			}
+			b, ok := ap.(bool)
+			if !ok {
+				t.Errorf("%s: additionalProperties is %T, want bool", name, ap)
+				return
+			}
+			if b {
+				t.Errorf("%s: additionalProperties is true; must be false", name)
+			}
+		})
+	}
+}

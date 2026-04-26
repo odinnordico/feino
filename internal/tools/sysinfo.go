@@ -85,8 +85,9 @@ func newSysInfoTool(logger *slog.Logger) Tool {
 			"disk usage. All byte values are reported both as raw uint64 and as a "+
 			"human-readable string (e.g. \"7.8 GiB\").",
 		map[string]any{
-			"type":       "object",
-			"properties": map[string]any{},
+			"type":                 "object",
+			"additionalProperties": false,
+			"properties":           map[string]any{},
 		},
 		func(params map[string]any) ToolResult {
 			ctx, cancel := context.WithTimeout(context.Background(), sysInfoTimeout)

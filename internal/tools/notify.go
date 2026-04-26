@@ -39,7 +39,8 @@ func newNotifyTool(logger *slog.Logger) Tool {
 			"without the user having to watch the TUI. "+
 			"Returns an error message when no display server is available (headless/SSH).",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"title": map[string]any{
 					"type":        "string",

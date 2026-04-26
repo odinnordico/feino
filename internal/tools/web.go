@@ -33,7 +33,8 @@ func NewWebTools(logger *slog.Logger) []Tool {
 // size cap.
 func newWebFetchTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"url": map[string]any{
 				"type":        "string",
@@ -111,7 +112,8 @@ func newWebFetchTool(logger *slog.Logger) Tool {
 // No API key required. Returns titles, URLs, and snippets as JSON.
 func newWebSearchTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"query": map[string]any{
 				"type":        "string",

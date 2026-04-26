@@ -31,7 +31,8 @@ func NewFileTools(logger *slog.Logger) []Tool {
 
 func newFileListTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
@@ -98,7 +99,8 @@ func newFileListTool(logger *slog.Logger) Tool {
 
 func newFileReadTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
@@ -184,7 +186,8 @@ func newFileReadTool(logger *slog.Logger) Tool {
 
 func newFileWriteTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
@@ -234,7 +237,8 @@ func newFileWriteTool(logger *slog.Logger) Tool {
 
 func newFileEditTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"path": map[string]any{
 				"type":        "string",
@@ -308,7 +312,8 @@ func newFileEditTool(logger *slog.Logger) Tool {
 
 func newFileSearchTool(logger *slog.Logger) Tool {
 	schema := map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"pattern": map[string]any{
 				"type":        "string",

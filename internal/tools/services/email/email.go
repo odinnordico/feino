@@ -163,7 +163,8 @@ func (s *emailToolSet) listTool() tools.Tool {
 		"List recent email messages from a mailbox folder. Returns message summaries "+
 			"including UID, sender, subject, date, and read status.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"folder": map[string]any{
 					"type":        "string",
@@ -222,7 +223,8 @@ func (s *emailToolSet) readTool() tools.Tool {
 		"Read a single email message by its UID. Returns the full message including "+
 			"headers, plain-text body, and HTML body when present.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"uid": map[string]any{
 					"type":        "integer",
@@ -283,7 +285,8 @@ func (s *emailToolSet) searchTool() tools.Tool {
 			"from:<addr>, subject:<text>, since:<YYYY-MM-DD>, before:<YYYY-MM-DD>, "+
 			"or a plain text string to search across all header and body text.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"query": map[string]any{
 					"type":        "string",
@@ -346,7 +349,8 @@ func (s *emailToolSet) sendTool() tools.Tool {
 		"Send an email message via SMTP. The From address is taken from the "+
 			"configured email address. Returns a confirmation on success.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"to": map[string]any{
 					"type":        "string",

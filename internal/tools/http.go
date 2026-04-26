@@ -58,7 +58,8 @@ func newHTTPRequestTool(logger *slog.Logger) Tool {
 			"Use this instead of web_fetch when you need full request control: "+
 			"POST with a JSON body, multipart uploads, custom auth headers, or REST API calls.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"url": map[string]any{
 					"type":        "string",

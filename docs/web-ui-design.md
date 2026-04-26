@@ -11,171 +11,185 @@
 
 ### Go Backend (`internal/web/`)
 
-| File | Status | Notes |
-|---|---|---|
-| `server.go` | ✅ | h2c, Connect handler, SPA, CORS, graceful shutdown |
-| `handler.go` | ✅ | All RPCs implemented |
-| `session_manager.go` | ✅ | Fan-out, permission bridge, no channel-close race |
-| `metrics_hub.go` | ✅ | Broadcast hub with stateMu for concurrent state changes |
-| `config_mapper.go` | ✅ | ConfigToProto / ProtoToConfig (API keys write-only) |
-| `history_mapper.go` | ✅ | messagesToProto / partToHistoryPart |
-| `event_mapper.go` | ✅ | eventToProto for all event kinds |
-| `file_service.go` | ✅ | Upload, ListFiles, UUID token store |
-| `embed.go` / `embed_stub.go` | ✅ | `//go:build web` + stub |
-| `build_session.go` | ✅ | Session + SessionManager + metricsHub + fileService |
-| `spa_handler.go` | ✅ | Falls back to index.html for SPA routing |
-| `handler_test.go` | ✅ | 14 integration tests |
-| `atref.go` | ✅ | `@path` / `@token` expansion; wired into `SendMessage` |
+| File                         | Status | Notes                                                   |
+| ---------------------------- | ------ | ------------------------------------------------------- |
+| `server.go`                  | ✅     | h2c, Connect handler, SPA, CORS, graceful shutdown      |
+| `handler.go`                 | ✅     | All RPCs implemented                                    |
+| `session_manager.go`         | ✅     | Fan-out, permission bridge, no channel-close race       |
+| `metrics_hub.go`             | ✅     | Broadcast hub with stateMu for concurrent state changes |
+| `config_mapper.go`           | ✅     | ConfigToProto / ProtoToConfig (API keys write-only)     |
+| `history_mapper.go`          | ✅     | messagesToProto / partToHistoryPart                     |
+| `event_mapper.go`            | ✅     | eventToProto for all event kinds                        |
+| `file_service.go`            | ✅     | Upload, ListFiles, UUID token store                     |
+| `embed.go` / `embed_stub.go` | ✅     | `//go:build web` + stub                                 |
+| `build_session.go`           | ✅     | Session + SessionManager + metricsHub + fileService     |
+| `spa_handler.go`             | ✅     | Falls back to index.html for SPA routing                |
+| `handler_test.go`            | ✅     | 14 integration tests                                    |
+| `atref.go`                   | ✅     | `@path` / `@token` expansion; wired into `SendMessage`  |
 
 ### RPC Methods
 
-| RPC | Status |
-|---|---|
-| `SendMessage` (streaming) | ✅ |
-| `CancelTurn` | ✅ |
-| `ResolvePermission` | ✅ |
-| `GetSessionState` | ✅ |
-| `GetHistory` | ✅ |
-| `ResetSession` | ✅ |
-| `GetConfig` | ✅ |
-| `UpdateConfig` | ✅ |
-| `GetConfigYAML` | ✅ |
-| `ListMemories` | ✅ |
-| `WriteMemory` | ✅ |
-| `UpdateMemory` | ✅ |
-| `DeleteMemory` | ✅ |
-| `UploadFile` | ✅ |
-| `ListFiles` | ✅ |
-| `ReloadPlugins` | ✅ |
-| `SetBypassMode` | ✅ |
-| `ClearBypassMode` | ✅ |
-| `GetBypassState` | ✅ |
-| `SetLanguage` | ✅ |
-| `SetTheme` | ✅ |
-| `StreamMetrics` | ✅ |
+| RPC                       | Status |
+| ------------------------- | ------ |
+| `SendMessage` (streaming) | ✅     |
+| `CancelTurn`              | ✅     |
+| `ResolvePermission`       | ✅     |
+| `GetSessionState`         | ✅     |
+| `GetHistory`              | ✅     |
+| `ResetSession`            | ✅     |
+| `GetConfig`               | ✅     |
+| `UpdateConfig`            | ✅     |
+| `GetConfigYAML`           | ✅     |
+| `ListMemories`            | ✅     |
+| `WriteMemory`             | ✅     |
+| `UpdateMemory`            | ✅     |
+| `DeleteMemory`            | ✅     |
+| `UploadFile`              | ✅     |
+| `ListFiles`               | ✅     |
+| `ReloadPlugins`           | ✅     |
+| `SetBypassMode`           | ✅     |
+| `ClearBypassMode`         | ✅     |
+| `GetBypassState`          | ✅     |
+| `SetLanguage`             | ✅     |
+| `SetTheme`                | ✅     |
+| `StreamMetrics`           | ✅     |
 
 ### React Frontend (`internal/web/ui/src/`)
 
 #### Entry points & infrastructure
-| File | Status | Notes |
-|---|---|---|
-| `main.tsx` | ✅ | BrowserRouter, fonts, highlight css |
-| `App.tsx` | ✅ | ThemeProvider + useRoutes |
-| `client.ts` | ✅ | Connect transport + feinoClient singleton |
-| `routes.tsx` | ✅ | All routes: `/`, `/history`, `/settings`, `/profile` |
+
+| File         | Status | Notes                                                |
+| ------------ | ------ | ---------------------------------------------------- |
+| `main.tsx`   | ✅     | BrowserRouter, fonts, highlight css                  |
+| `App.tsx`    | ✅     | ThemeProvider + useRoutes                            |
+| `client.ts`  | ✅     | Connect transport + feinoClient singleton            |
+| `routes.tsx` | ✅     | All routes: `/`, `/history`, `/settings`, `/profile` |
 
 #### Styles
-| File | Status | Notes |
-|---|---|---|
-| `styles/neural-terminal.css` | ✅ | Full design-spec color tokens, transitions |
-| `styles/globals.css` | ✅ | Tailwind + prose + animation keyframes + responsive |
+
+| File                         | Status | Notes                                               |
+| ---------------------------- | ------ | --------------------------------------------------- |
+| `styles/neural-terminal.css` | ✅     | Full design-spec color tokens, transitions          |
+| `styles/globals.css`         | ✅     | Tailwind + prose + animation keyframes + responsive |
 
 #### Types
-| File | Status |
-|---|---|
-| `types/chat.ts` | ✅ |
-| `types/config.ts` | ✅ |
-| `types/metrics.ts` | ✅ |
+
+| File               | Status |
+| ------------------ | ------ |
+| `types/chat.ts`    | ✅     |
+| `types/config.ts`  | ✅     |
+| `types/metrics.ts` | ✅     |
 
 #### Lib
-| File | Status |
-|---|---|
-| `lib/utils.ts` | ✅ |
-| `lib/markdown.ts` | ✅ |
-| `lib/highlight.ts` | ✅ |
+
+| File               | Status |
+| ------------------ | ------ |
+| `lib/utils.ts`     | ✅     |
+| `lib/markdown.ts`  | ✅     |
+| `lib/highlight.ts` | ✅     |
 
 #### Stores
-| File | Status | Notes |
-|---|---|---|
-| `store/chatStore.ts` | ✅ | messages, busy, reactState, pendingPermission, tokens |
-| `store/sessionStore.ts` | ✅ | metricsOpen, bypassExpiry, bypassSession, modelName |
-| `store/metricsStore.ts` | ✅ | latency/token rolling history |
-| `store/configStore.ts` | ✅ | config snapshot + dirty flag |
+
+| File                    | Status | Notes                                                 |
+| ----------------------- | ------ | ----------------------------------------------------- |
+| `store/chatStore.ts`    | ✅     | messages, busy, reactState, pendingPermission, tokens |
+| `store/sessionStore.ts` | ✅     | metricsOpen, bypassExpiry, bypassSession, modelName   |
+| `store/metricsStore.ts` | ✅     | latency/token rolling history                         |
+| `store/configStore.ts`  | ✅     | config snapshot + dirty flag                          |
 
 #### Hooks
-| File | Status |
-|---|---|
-| `hooks/useChatStream.ts` | ✅ |
-| `hooks/useMetrics.ts` | ✅ |
-| `hooks/useConfig.ts` | ✅ |
-| `hooks/useMemory.ts` | ✅ |
-| `hooks/useHistory.ts` | ✅ |
-| `hooks/useSession.ts` | ✅ |
-| `hooks/useBypass.ts` | ✅ |
-| `hooks/useFiles.ts` | ✅ |
+
+| File                     | Status |
+| ------------------------ | ------ |
+| `hooks/useChatStream.ts` | ✅     |
+| `hooks/useMetrics.ts`    | ✅     |
+| `hooks/useConfig.ts`     | ✅     |
+| `hooks/useMemory.ts`     | ✅     |
+| `hooks/useHistory.ts`    | ✅     |
+| `hooks/useSession.ts`    | ✅     |
+| `hooks/useBypass.ts`     | ✅     |
+| `hooks/useFiles.ts`      | ✅     |
 
 #### Layout components
-| File | Status |
-|---|---|
-| `components/layout/ThemeProvider.tsx` | ✅ |
-| `components/layout/Header.tsx` | ✅ |
-| `components/layout/AppShell.tsx` | ✅ |
-| `components/layout/Sidebar.tsx` | ✅ |
-| `components/layout/MobileNav.tsx` | ✅ |
+
+| File                                  | Status |
+| ------------------------------------- | ------ |
+| `components/layout/ThemeProvider.tsx` | ✅     |
+| `components/layout/Header.tsx`        | ✅     |
+| `components/layout/AppShell.tsx`      | ✅     |
+| `components/layout/Sidebar.tsx`       | ✅     |
+| `components/layout/MobileNav.tsx`     | ✅     |
 
 #### Shared components
-| File | Status |
-|---|---|
-| `components/shared/Button.tsx` | ✅ |
-| `components/shared/Spinner.tsx` | ✅ |
-| `components/shared/Modal.tsx` | ✅ |
-| `components/shared/Badge.tsx` | ✅ |
-| `components/shared/Tooltip.tsx` | ✅ |
-| `components/shared/CodeBlock.tsx` | ✅ |
-| `components/shared/Collapsible.tsx` | ✅ |
+
+| File                                | Status |
+| ----------------------------------- | ------ |
+| `components/shared/Button.tsx`      | ✅     |
+| `components/shared/Spinner.tsx`     | ✅     |
+| `components/shared/Modal.tsx`       | ✅     |
+| `components/shared/Badge.tsx`       | ✅     |
+| `components/shared/Tooltip.tsx`     | ✅     |
+| `components/shared/CodeBlock.tsx`   | ✅     |
+| `components/shared/Collapsible.tsx` | ✅     |
 
 #### Chat components
-| File | Status | Notes |
-|---|---|---|
-| `components/chat/ChatView.tsx` | ✅ | MetricsPanel toggle wired |
-| `components/chat/MessageList.tsx` | ✅ | streaming cursor passed to last assistant bubble |
-| `components/chat/MessageBubble.tsx` | ✅ | ThoughtBlock + ToolCallCard + MarkdownRenderer |
-| `components/chat/ThoughtBlock.tsx` | ✅ | collapsible purple block |
-| `components/chat/ToolCallCard.tsx` | ✅ | collapsible with status badge |
-| `components/chat/StreamingCursor.tsx` | ✅ | blinking caret |
-| `components/chat/MarkdownRenderer.tsx` | ✅ | react-markdown wrapper |
-| `components/chat/InputBar.tsx` | ✅ | slash completions, file attach |
-| `components/chat/SlashCommandMenu.tsx` | ✅ | |
-| `components/chat/AtPathMenu.tsx` | ✅ | @path autocomplete with live file listing |
-| `components/chat/MessageQueue.tsx` | ✅ | queue position badge with pulse animation |
-| `components/chat/PermissionModal.tsx` | ✅ | |
-| `components/chat/StatusBar.tsx` | ✅ | YOLO countdown, latency, token counts |
+
+| File                                   | Status | Notes                                            |
+| -------------------------------------- | ------ | ------------------------------------------------ |
+| `components/chat/ChatView.tsx`         | ✅     | MetricsPanel toggle wired                        |
+| `components/chat/MessageList.tsx`      | ✅     | streaming cursor passed to last assistant bubble |
+| `components/chat/MessageBubble.tsx`    | ✅     | ThoughtBlock + ToolCallCard + MarkdownRenderer   |
+| `components/chat/ThoughtBlock.tsx`     | ✅     | collapsible purple block                         |
+| `components/chat/ToolCallCard.tsx`     | ✅     | collapsible with status badge                    |
+| `components/chat/StreamingCursor.tsx`  | ✅     | blinking caret                                   |
+| `components/chat/MarkdownRenderer.tsx` | ✅     | react-markdown wrapper                           |
+| `components/chat/InputBar.tsx`         | ✅     | slash completions, file attach                   |
+| `components/chat/SlashCommandMenu.tsx` | ✅     |                                                  |
+| `components/chat/AtPathMenu.tsx`       | ✅     | @path autocomplete with live file listing        |
+| `components/chat/MessageQueue.tsx`     | ✅     | queue position badge with pulse animation        |
+| `components/chat/PermissionModal.tsx`  | ✅     |                                                  |
+| `components/chat/StatusBar.tsx`        | ✅     | YOLO countdown, latency, token counts            |
 
 #### Metrics components
-| File | Status |
-|---|---|
-| `components/metrics/MetricsPanel.tsx` | ✅ |
-| `components/metrics/LatencySparkline.tsx` | ✅ |
-| `components/metrics/TokenBarChart.tsx` | ✅ |
+
+| File                                      | Status |
+| ----------------------------------------- | ------ |
+| `components/metrics/MetricsPanel.tsx`     | ✅     |
+| `components/metrics/LatencySparkline.tsx` | ✅     |
+| `components/metrics/TokenBarChart.tsx`    | ✅     |
 
 #### Settings components
-| File | Status | Notes |
-|---|---|---|
-| `components/settings/SettingsPanel.tsx` | ✅ | 6 tabs: Providers, Security, Agent, Context, Email, Advanced |
-| `components/settings/ProviderSection.tsx` | ✅ | All 5 providers extracted to own component |
-| `components/settings/SecuritySection.tsx` | ✅ | Permission level + allowed paths extracted |
-| `components/settings/AgentSection.tsx` | ✅ | Max retries + complexity thresholds extracted |
-| `components/settings/EmailSetupSection.tsx` | ✅ | IMAP/SMTP form with enabled toggle |
+
+| File                                        | Status | Notes                                                        |
+| ------------------------------------------- | ------ | ------------------------------------------------------------ |
+| `components/settings/SettingsPanel.tsx`     | ✅     | 6 tabs: Providers, Security, Agent, Context, Email, Advanced |
+| `components/settings/ProviderSection.tsx`   | ✅     | All 5 providers extracted to own component                   |
+| `components/settings/SecuritySection.tsx`   | ✅     | Permission level + allowed paths extracted                   |
+| `components/settings/AgentSection.tsx`      | ✅     | Max retries + complexity thresholds extracted                |
+| `components/settings/EmailSetupSection.tsx` | ✅     | IMAP/SMTP form with enabled toggle                           |
 
 #### Profile components
-| File | Status |
-|---|---|
-| `components/profile/ProfilePage.tsx` | ✅ |
-| `components/profile/MemoryManager.tsx` | ✅ |
-| `components/profile/MemoryRow.tsx` | ✅ |
+
+| File                                   | Status |
+| -------------------------------------- | ------ |
+| `components/profile/ProfilePage.tsx`   | ✅     |
+| `components/profile/MemoryManager.tsx` | ✅     |
+| `components/profile/MemoryRow.tsx`     | ✅     |
 
 #### History components
-| File | Status |
-|---|---|
-| `components/history/HistoryView.tsx` | ✅ |
+
+| File                                 | Status |
+| ------------------------------------ | ------ |
+| `components/history/HistoryView.tsx` | ✅     |
 
 #### Modal components
-| File | Status |
-|---|---|
-| `components/modals/YoloModal.tsx` | ✅ |
-| `components/modals/LangModal.tsx` | ✅ |
-| `components/modals/ThemeModal.tsx` | ✅ |
-| `components/modals/ConfigYamlModal.tsx` | ✅ |
+
+| File                                    | Status |
+| --------------------------------------- | ------ |
+| `components/modals/YoloModal.tsx`       | ✅     |
+| `components/modals/LangModal.tsx`       | ✅     |
+| `components/modals/ThemeModal.tsx`      | ✅     |
+| `components/modals/ConfigYamlModal.tsx` | ✅     |
 
 ---
 
@@ -217,13 +231,13 @@ The React application is embedded directly into the compiled binary via `go:embe
 
 **What is new:**
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite + Tailwind CSS v4 |
-| Transport | Connect RPC (bufbuild) — gRPC-compatible, browser-native |
-| Serving | Embedded Go HTTP server, `h2c` (HTTP/2 cleartext) |
+| Layer     | Technology                                                  |
+| --------- | ----------------------------------------------------------- |
+| Frontend  | React 18 + TypeScript + Vite + Tailwind CSS v4              |
+| Transport | Connect RPC (bufbuild) — gRPC-compatible, browser-native    |
+| Serving   | Embedded Go HTTP server, `h2c` (HTTP/2 cleartext)           |
 | Streaming | Server-streaming RPC — one open stream per active chat turn |
-| Schema | Protobuf 3 (`proto/feino/v1/feino.proto`) |
+| Schema    | Protobuf 3 (`proto/feino/v1/feino.proto`)                   |
 
 **What is unchanged:**
 
@@ -267,6 +281,7 @@ Single layout that adapts: sidebar collapses to a bottom navigation bar on narro
 The aesthetic bridges two audiences: the non-technical user who appreciates a polished, dark-glass application, and the technical user who is drawn to the phosphor-green terminal heritage of the TUI. The result is called **Neural Terminal** — a clean, modern dark UI with neon-green life.
 
 Key visual ideas:
+
 - Near-black background with a subtle blue-black tint (not pure #000000, which feels flat)
 - Neon green as the sole accent — reserved for interactive elements and active states
 - Cyan as a secondary accent for links and informational highlights
@@ -284,81 +299,83 @@ All values are defined as CSS custom properties in `web/src/styles/neural-termin
 /* web/src/styles/neural-terminal.css */
 :root {
   /* ── Backgrounds ─────────────────────────────────────────── */
-  --color-bg:          #050508;   /* page background */
-  --color-surface-1:   #0d0d14;   /* card / panel background */
-  --color-surface-2:   #14141f;   /* elevated surfaces, dropdowns */
-  --color-surface-3:   #1a1a2e;   /* highest elevation, tooltips */
-  --color-border:      #1e1e2e;   /* subtle separators */
-  --color-border-dim:  #131320;   /* ultra-subtle borders */
+  --color-bg: #050508; /* page background */
+  --color-surface-1: #0d0d14; /* card / panel background */
+  --color-surface-2: #14141f; /* elevated surfaces, dropdowns */
+  --color-surface-3: #1a1a2e; /* highest elevation, tooltips */
+  --color-border: #1e1e2e; /* subtle separators */
+  --color-border-dim: #131320; /* ultra-subtle borders */
 
   /* ── Neon green (primary) ────────────────────────────────── */
-  --color-primary:     #00ff88;   /* buttons, active states, cursor */
-  --color-primary-dim: #00cc6a;   /* hover states */
+  --color-primary: #00ff88; /* buttons, active states, cursor */
+  --color-primary-dim: #00cc6a; /* hover states */
   --color-primary-muted: #00ff8833; /* transparent tint */
-  --color-glow:        rgba(0, 255, 136, 0.18); /* box-shadow glow */
+  --color-glow: rgba(0, 255, 136, 0.18); /* box-shadow glow */
   --color-glow-strong: rgba(0, 255, 136, 0.35); /* focused glow */
 
   /* ── Cyan (secondary accent) ────────────────────────────── */
-  --color-accent:      #00e5ff;   /* links, info, secondary actions */
-  --color-accent-dim:  #00b8cc;   /* hover for accent elements */
+  --color-accent: #00e5ff; /* links, info, secondary actions */
+  --color-accent-dim: #00b8cc; /* hover for accent elements */
 
   /* ── Text ────────────────────────────────────────────────── */
-  --color-text:        #e8e8f0;   /* primary text */
-  --color-text-dim:    #8888aa;   /* secondary / muted text */
-  --color-text-faint:  #4a4a66;   /* placeholder, disabled */
-  --color-text-bright: #ffffff;   /* headings, labels */
-  --color-text-code:   #00ff88;   /* inline code */
+  --color-text: #e8e8f0; /* primary text */
+  --color-text-dim: #8888aa; /* secondary / muted text */
+  --color-text-faint: #4a4a66; /* placeholder, disabled */
+  --color-text-bright: #ffffff; /* headings, labels */
+  --color-text-code: #00ff88; /* inline code */
 
   /* ── Semantic ────────────────────────────────────────────── */
-  --color-error:       #ff4466;
+  --color-error: #ff4466;
   --color-error-muted: rgba(255, 68, 102, 0.15);
-  --color-warning:     #ffaa00;
+  --color-warning: #ffaa00;
   --color-warning-muted: rgba(255, 170, 0, 0.15);
-  --color-success:     #00ff88;   /* same as primary */
-  --color-info:        #00e5ff;   /* same as accent */
+  --color-success: #00ff88; /* same as primary */
+  --color-info: #00e5ff; /* same as accent */
 
   /* ── State colors ────────────────────────────────────────── */
-  --color-yolo:        #ff6b00;   /* bypass/yolo mode indicator */
-  --color-yolo-muted:  rgba(255, 107, 0, 0.15);
-  --color-thinking:    #9b59ff;   /* thought block accent */
+  --color-yolo: #ff6b00; /* bypass/yolo mode indicator */
+  --color-yolo-muted: rgba(255, 107, 0, 0.15);
+  --color-thinking: #9b59ff; /* thought block accent */
   --color-thinking-muted: rgba(155, 89, 255, 0.12);
-  --color-tool:        #00e5ff;   /* tool call card accent */
-  --color-tool-muted:  rgba(0, 229, 255, 0.10);
+  --color-tool: #00e5ff; /* tool call card accent */
+  --color-tool-muted: rgba(0, 229, 255, 0.1);
 
   /* ── Typography ──────────────────────────────────────────── */
-  --font-mono:  "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
-  --font-sans:  "Inter", "Helvetica Neue", system-ui, sans-serif;
-  --font-size-xs:   0.75rem;   /* 12px */
-  --font-size-sm:   0.875rem;  /* 14px */
-  --font-size-base: 1rem;      /* 16px */
-  --font-size-lg:   1.125rem;  /* 18px */
-  --font-size-xl:   1.25rem;   /* 20px */
+  --font-mono:
+    "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --font-sans: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-size-xs: 0.75rem; /* 12px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-base: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-size-xl: 1.25rem; /* 20px */
 
   /* ── Spacing ─────────────────────────────────────────────── */
-  --radius-sm:  4px;
-  --radius-md:  8px;
-  --radius-lg:  12px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 999px;
 
   /* ── Shadows / Glow ──────────────────────────────────────── */
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.4);
-  --shadow-md:  0 4px 12px rgba(0,0,0,0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --glow-primary: 0 0 12px var(--color-glow), 0 0 24px var(--color-glow);
-  --glow-focus:   0 0 0 2px var(--color-primary), 0 0 12px var(--color-glow-strong);
+  --glow-focus:
+    0 0 0 2px var(--color-primary), 0 0 12px var(--color-glow-strong);
 }
 
 /* Light theme override */
 [data-theme="light"] {
-  --color-bg:        #f4f4f8;
+  --color-bg: #f4f4f8;
   --color-surface-1: #ffffff;
   --color-surface-2: #f0f0f5;
   --color-surface-3: #e8e8f0;
-  --color-border:    #d8d8e8;
-  --color-primary:   #008844;
+  --color-border: #d8d8e8;
+  --color-primary: #008844;
   --color-primary-dim: #006633;
-  --color-glow:      rgba(0, 136, 68, 0.15);
-  --color-text:      #1a1a2e;
-  --color-text-dim:  #6666aa;
+  --color-glow: rgba(0, 136, 68, 0.15);
+  --color-text: #1a1a2e;
+  --color-text-dim: #6666aa;
   --color-text-faint: #aaaacc;
   --color-text-bright: #000000;
   --color-text-code: #008844;
@@ -367,18 +384,18 @@ All values are defined as CSS custom properties in `web/src/styles/neural-termin
 
 ### 3.3 Typography Rules
 
-| Use | Font | Size | Weight |
-|---|---|---|---|
-| Page headings | Inter | xl (20px) | 600 |
-| Section labels | Inter | sm (14px) | 500 |
-| Body text | Inter | base (16px) | 400 |
-| Assistant messages | Inter | base | 400 |
-| User messages | Inter | base | 400 |
-| Command names, paths | JetBrains Mono | sm | 400 |
-| Tool names, IDs | JetBrains Mono | xs | 400 |
-| Code blocks | JetBrains Mono | sm | 400 |
-| Status bar | JetBrains Mono | xs | 400 |
-| ReAct state | JetBrains Mono | xs | 500 |
+| Use                  | Font           | Size        | Weight |
+| -------------------- | -------------- | ----------- | ------ |
+| Page headings        | Inter          | xl (20px)   | 600    |
+| Section labels       | Inter          | sm (14px)   | 500    |
+| Body text            | Inter          | base (16px) | 400    |
+| Assistant messages   | Inter          | base        | 400    |
+| User messages        | Inter          | base        | 400    |
+| Command names, paths | JetBrains Mono | sm          | 400    |
+| Tool names, IDs      | JetBrains Mono | xs          | 400    |
+| Code blocks          | JetBrains Mono | sm          | 400    |
+| Status bar           | JetBrains Mono | xs          | 400    |
+| ReAct state          | JetBrains Mono | xs          | 500    |
 
 ### 3.4 Interactive States
 
@@ -391,6 +408,7 @@ default  → hover     → active      → focus
 ```
 
 Primary buttons (e.g. Send, Allow):
+
 ```
 default  → hover          → active        → disabled
 bg:primary → bg:primary-dim → bg:primary×0.8 → opacity: 0.35
@@ -401,9 +419,9 @@ glow-primary on hover and focus
 ### 3.5 Animation Tokens
 
 ```css
---transition-fast:   120ms cubic-bezier(0.4, 0, 0.2, 1);
---transition-base:   200ms cubic-bezier(0.4, 0, 0.2, 1);
---transition-slow:   350ms cubic-bezier(0.4, 0, 0.2, 1);
+--transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+--transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+--transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1); /* overshoot */
 ```
 
@@ -469,14 +487,14 @@ New message fade-in: `@keyframes fadeSlideUp { from { opacity:0; transform:trans
 
 ### 4.1 Runtime Modes Side-by-Side
 
-| Aspect | TUI | REPL | Web |
-|---|---|---|---|
-| Entry | `tui.Run(cfg)` | `repl.Run(sess,…)` | `web.Start(ctx, cfg, addr)` |
-| Session | `app.Session` | `app.Session` | `app.Session` |
-| Events | `prog.Send(SessionEventMsg)` | blocking loop | `stream.Send(AgentEvent)` |
-| Permissions | inline y/n | inline y/n | modal dialog via `ResolvePermission` RPC |
-| Streaming | Bubble Tea viewport | line-by-line | server-stream chunks |
-| Config save | `config.Save` | manual | `config.Save` via `UpdateConfig` RPC |
+| Aspect      | TUI                          | REPL               | Web                                      |
+| ----------- | ---------------------------- | ------------------ | ---------------------------------------- |
+| Entry       | `tui.Run(cfg)`               | `repl.Run(sess,…)` | `web.Start(ctx, cfg, addr)`              |
+| Session     | `app.Session`                | `app.Session`      | `app.Session`                            |
+| Events      | `prog.Send(SessionEventMsg)` | blocking loop      | `stream.Send(AgentEvent)`                |
+| Permissions | inline y/n                   | inline y/n         | modal dialog via `ResolvePermission` RPC |
+| Streaming   | Bubble Tea viewport          | line-by-line       | server-stream chunks                     |
+| Config save | `config.Save`                | manual             | `config.Save` via `UpdateConfig` RPC     |
 
 ---
 
@@ -486,14 +504,15 @@ New message fade-in: `@keyframes fadeSlideUp { from { opacity:0; transform:trans
 
 Browsers cannot speak raw gRPC (HTTP/2 binary framing requires trailer support that browser Fetch API does not provide). Options were:
 
-| Option | Pros | Cons |
-|---|---|---|
-| WebSocket | Simple, bidirectional | Custom framing, no type safety, manual TS types |
-| SSE + REST | HTTP-native, simple | No backpressure, polling for bidirectional |
-| gRPC-Web + Envoy | True gRPC on the wire | Requires Envoy proxy sidecar |
-| **Connect RPC** | gRPC-compatible, no proxy, browser-native, typed TS client | Minor wire format difference from raw gRPC |
+| Option           | Pros                                                       | Cons                                            |
+| ---------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| WebSocket        | Simple, bidirectional                                      | Custom framing, no type safety, manual TS types |
+| SSE + REST       | HTTP-native, simple                                        | No backpressure, polling for bidirectional      |
+| gRPC-Web + Envoy | True gRPC on the wire                                      | Requires Envoy proxy sidecar                    |
+| **Connect RPC**  | gRPC-compatible, no proxy, browser-native, typed TS client | Minor wire format difference from raw gRPC      |
 
 **Connect** (bufbuild) was chosen because:
+
 1. The Go handler `connectrpc.com/connect` serves all three protocols from the same `http.Handler`: Connect (browser-friendly), gRPC, and gRPC-Web. No proxy.
 2. `buf generate` produces both Go server interfaces and TypeScript client code from the same `.proto` file.
 3. Server streaming (the primary need) is fully supported in browsers via the Connect protocol over HTTP/1.1 fetch with `ReadableStream`.
@@ -1178,6 +1197,7 @@ The `SessionManager` is the critical piece that decouples the global `app.Sessio
 ```
 
 Key methods:
+
 - `Subscribe(streamID string) (<-chan app.Event, cancel func())` — creates channel, registers it. `cancel()` deregisters it.
 - `SetPermissionCallback()` — called once in `BuildSession`; installs the callback that stores the `chan bool` and emits `PermissionRequestEvent` to the active stream.
 - `ResolvePermission(requestID string, approved bool) error` — finds the channel, sends the decision.
@@ -1207,6 +1227,7 @@ Client                        Server (FeinoServiceHandler)
 ```
 
 Pseudocode:
+
 ```go
 func (h *FeinoServiceHandler) SendMessage(
     ctx context.Context,
@@ -1436,8 +1457,8 @@ web/
 ```typescript
 // web/src/client.ts
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient }           from "@connectrpc/connect";
-import { FeinoService }           from "./gen/feino/v1/feino_connect";
+import { createClient } from "@connectrpc/connect";
+import { FeinoService } from "./gen/feino/v1/feino_connect";
 
 export const transport = createConnectTransport({
   baseUrl: window.location.origin,
@@ -1451,10 +1472,10 @@ export const feinoClient = createClient(FeinoService, transport);
 
 ```tsx
 // web/src/main.tsx
-import React    from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import App              from "./App";
+import App from "./App";
 import { ThemeProvider } from "./components/layout/ThemeProvider";
 import "./styles/globals.css";
 
@@ -1465,7 +1486,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <App />
       </ThemeProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
 ```
 
@@ -1474,21 +1495,21 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 ```tsx
 // web/src/routes.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AppShell }    from "./components/layout/AppShell";
-import { ChatView }    from "./components/chat/ChatView";
+import { AppShell } from "./components/layout/AppShell";
+import { ChatView } from "./components/chat/ChatView";
 import { HistoryView } from "./components/history/HistoryView";
 import { SettingsPanel } from "./components/settings/SettingsPanel";
-import { ProfilePage }   from "./components/profile/ProfilePage";
+import { ProfilePage } from "./components/profile/ProfilePage";
 
 export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index         element={<ChatView />} />
+        <Route index element={<ChatView />} />
         <Route path="history" element={<HistoryView />} />
         <Route path="settings" element={<SettingsPanel />} />
-        <Route path="profile"  element={<ProfilePage />} />
-        <Route path="*"       element={<Navigate to="/" replace />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
@@ -1574,7 +1595,7 @@ interface Props {
 
 ```tsx
 interface Props {
-  text: string;         // accumulated thought text
+  text: string; // accumulated thought text
   isStreaming: boolean; // true while more thought chunks may arrive
 }
 ```
@@ -1586,11 +1607,11 @@ Renders as a collapsible section with a purple (`--color-thinking`) accent borde
 ```tsx
 interface Props {
   call: {
-    callId:    string;
-    name:      string;
-    arguments: string;  // JSON
-    result?:   { content: string; isError: boolean };
-    status:    "pending" | "running" | "resolved" | "error";
+    callId: string;
+    name: string;
+    arguments: string; // JSON
+    result?: { content: string; isError: boolean };
+    status: "pending" | "running" | "resolved" | "error";
   };
 }
 ```
@@ -1598,12 +1619,14 @@ interface Props {
 **Collapsed header:** tool icon (wrench) + tool name in monospace + status badge.
 
 Status badge colors:
+
 - `pending` → dim gray
 - `running` → pulsing cyan dot
 - `resolved` → green checkmark
 - `error` → red X
 
 **Expanded body:**
+
 ```
 ▼ file_read  ✓
   Arguments
@@ -1655,24 +1678,28 @@ On selection: calls `feinoClient.resolvePermission({ requestId, approved })` the
 ### 9.7 `InputBar` — Message Input
 
 **Textarea behavior:**
+
 - Auto-grows vertically from 1 to 8 lines (`resize: none`, CSS `field-sizing: content` with JS fallback).
 - `Enter` submits (when no completion menu open).
 - `Ctrl+Enter` or `Shift+Enter` inserts newline.
 - `Escape` dismisses any open completion menu.
 
 **Slash command completions:**
+
 - Triggered when the entire textarea value starts with `/` and contains no spaces.
 - `SlashCommandMenu` renders floating above the textarea, positioned to the left edge.
 - `↑`/`↓` arrows navigate; `Tab` or `Enter` accepts.
 - Full command list matches TUI: `/clear`, `/config`, `/email-setup`, `/exit`, `/history`, `/lang`, `/profile`, `/quit`, `/reload-plugins`, `/reset`, `/setup`, `/theme`, `/yolo`.
 
 **`@path` completions:**
+
 - Triggered when the current word (space-delimited token at cursor) starts with `@`.
 - Calls `feinoClient.listFiles({ path: partialPath })` with 300ms debounce.
 - `AtPathMenu` renders floating above the cursor; same keyboard navigation.
 - Drag-and-drop anywhere in `ChatView` calls `feinoClient.uploadFile(...)` and inserts `@<token>` at the cursor.
 
 **Send / Cancel button:**
+
 - When not busy: green "Send" button with arrow icon. Submits on click.
 - When busy: red "Cancel" button with X icon. Calls `feinoClient.cancelTurn()`.
 - File attach button (📎): opens browser file picker; selected file is uploaded via `uploadFile` RPC and token inserted at cursor.
@@ -1697,6 +1724,7 @@ On selection: calls `feinoClient.resolvePermission({ requestId, approved })` the
 Toggleable panel (right side of `ChatView`). State persisted in `sessionStore.metricsOpen`.
 
 **LatencySparkline:**
+
 - Line chart, 20-point rolling window
 - X-axis: turn number (no labels, too small)
 - Y-axis: milliseconds (auto-scale)
@@ -1705,6 +1733,7 @@ Toggleable panel (right side of `ChatView`). State persisted in `sessionStore.me
 - Last point dot emphasized
 
 **TokenBarChart:**
+
 - Grouped bar chart, 10-turn rolling window
 - Two bars per turn: prompt (dim green) + completion (bright green)
 - Y-axis: token count
@@ -1717,6 +1746,7 @@ Both charts use `recharts` with custom styling to match the Neural Terminal pale
 Full-screen overlay (not a route, a modal) opened via the ⚙ icon in the header.
 
 **Tabs:**
+
 1. **Provider** — active provider badge + per-provider sections:
    - Anthropic: API key (masked input), default model (text input), "Test connection" button
    - OpenAI: API key, base URL, default model
@@ -1738,12 +1768,14 @@ Full-screen overlay (not a route, a modal) opened via the ⚙ icon in the header
 Two sections on this page.
 
 **Profile section:**
+
 - Name: text input, placeholder "e.g. Diego"
 - Timezone: text input with autocomplete from a static IANA list
 - Communication style: radio group with icons (none / concise / detailed / technical / friendly)
 - "Save" calls `UpdateConfig` with the `user` field only
 
 **Memory manager:**
+
 - List of all memories grouped by category (profile, preference, fact, note)
 - Each `MemoryRow`:
   - Category badge (colored per category)
@@ -1759,15 +1791,18 @@ Two sections on this page.
 These three modals are triggered by the corresponding slash commands and follow the same pattern as the TUI's picker overlays.
 
 **YoloModal:**
+
 ```
 ⚡ UNSAFE MODE
 Select how long bypass mode stays active:
 [ 5 min ]  [ 10 min ]  [ 30 min ]  [ Session ]
               [ Cancel ]
 ```
+
 Selection calls `feinoClient.setBypassMode(...)`. Confirmation toast appears. The amber YOLO indicator activates in the status bar.
 
 **LangModal:**
+
 ```
 🌐 Select UI language:
 ● English  ○ Español (Latin America)  ○ Español (España)
@@ -1775,15 +1810,18 @@ Selection calls `feinoClient.setBypassMode(...)`. Confirmation toast appears. Th
 ○ 日本語  ○ Русский
          [ Cancel ]
 ```
+
 Calls `feinoClient.setLanguage(...)`. The language change takes effect after page refresh (Connect client uses the `Accept-Language` header; the server returns localized error messages and strings).
 
 **ThemeModal:**
+
 ```
 🎨 Select theme:
 ○ Neo — phosphor green   ● Dark — Catppuccin Mocha
 ○ Light — Catppuccin Latte  ○ Auto (detect background)
               [ Cancel ]
 ```
+
 Calls `feinoClient.setTheme(...)`. `ThemeProvider` reacts immediately by updating `data-theme` on `<html>`. No page refresh needed.
 
 ---
@@ -1794,27 +1832,27 @@ Calls `feinoClient.setTheme(...)`. `ThemeProvider` reacts immediately by updatin
 
 ```typescript
 interface ChatState {
-  messages:          RenderedMessage[];
-  busy:              boolean;
-  queueLength:       number;
-  reactState:        string;            // ReAct state name
+  messages: RenderedMessage[];
+  busy: boolean;
+  queueLength: number;
+  reactState: string; // ReAct state name
   pendingPermission: PermissionRequest | null;
-  streamingText:     string;            // accumulates during stream
-  streamingThought:  string;            // accumulates thought
-  activeToolCalls:   Map<string, ToolCallState>;
+  streamingText: string; // accumulates during stream
+  streamingThought: string; // accumulates thought
+  activeToolCalls: Map<string, ToolCallState>;
 
   // Actions
-  addUserMessage:     (text: string) => void;
-  appendStreamChunk:  (text: string) => void;
+  addUserMessage: (text: string) => void;
+  appendStreamChunk: (text: string) => void;
   appendThoughtChunk: (text: string) => void;
-  addToolCall:        (call: ToolCallEvent) => void;
-  resolveToolCall:    (result: ToolResultEvent) => void;
-  flushStream:        () => void; // called on CompleteEvent
-  setPermission:      (req: PermissionRequest | null) => void;
-  setReactState:      (state: string) => void;
-  setBusy:            (busy: boolean, queueLen?: number) => void;
-  clear:              () => void;
-  reset:              () => void;
+  addToolCall: (call: ToolCallEvent) => void;
+  resolveToolCall: (result: ToolResultEvent) => void;
+  flushStream: () => void; // called on CompleteEvent
+  setPermission: (req: PermissionRequest | null) => void;
+  setReactState: (state: string) => void;
+  setBusy: (busy: boolean, queueLen?: number) => void;
+  clear: () => void;
+  reset: () => void;
 }
 ```
 
@@ -1822,9 +1860,9 @@ interface ChatState {
 
 ```typescript
 interface MetricsState {
-  latencyHistory: number[];     // rolling 20 values (ms per turn)
-  tokenHistory:   TokenPoint[]; // rolling 10 values {prompt, completion}
-  currentUsage:   UsageMetadata | null;
+  latencyHistory: number[]; // rolling 20 values (ms per turn)
+  tokenHistory: TokenPoint[]; // rolling 10 values {prompt, completion}
+  currentUsage: UsageMetadata | null;
 
   pushMetric: (event: MetricsEvent) => void;
 }
@@ -1835,11 +1873,14 @@ interface MetricsState {
 ```typescript
 interface ConfigState {
   config: ConfigProto | null;
-  dirty:  boolean;
+  dirty: boolean;
 
   setConfig: (cfg: ConfigProto) => void;
-  updateField: <K extends keyof ConfigProto>(key: K, value: ConfigProto[K]) => void;
-  markClean:  () => void;
+  updateField: <K extends keyof ConfigProto>(
+    key: K,
+    value: ConfigProto[K],
+  ) => void;
+  markClean: () => void;
 }
 ```
 
@@ -1847,16 +1888,16 @@ interface ConfigState {
 
 ```typescript
 interface SessionState {
-  theme:          string;
-  language:       string;
-  bypassActive:   boolean;
-  bypassExpiry:   Date | null;
-  bypassSession:  boolean;
-  metricsOpen:    boolean;
+  theme: string;
+  language: string;
+  bypassActive: boolean;
+  bypassExpiry: Date | null;
+  bypassSession: boolean;
+  metricsOpen: boolean;
 
-  setTheme:   (t: string) => void;
-  setLang:    (l: string) => void;
-  setBypass:  (state: BypassStateResponse) => void;
+  setTheme: (t: string) => void;
+  setLang: (l: string) => void;
+  setBypass: (state: BypassStateResponse) => void;
   clearBypass: () => void;
   toggleMetrics: () => void;
 }
@@ -1932,6 +1973,7 @@ feinoClient.sendMessage({ text }) → server stream opens
 ```
 
 Status dot colors:
+
 - Green: session idle
 - Cyan pulsing: agent working
 - Amber: bypass mode active
@@ -1949,20 +1991,20 @@ Active tab: primary green dot above the icon.
 
 ### 11.3 Slash Command to Route/Action Mapping
 
-| Command | Action |
-|---|---|
-| `/setup` | Opens `SettingsPanel` overlay |
-| `/email-setup` | Opens `SettingsPanel` on Email tab |
-| `/yolo` | Opens `YoloModal` |
-| `/lang` | Opens `LangModal` |
-| `/theme` | Opens `ThemeModal` |
-| `/reset` | Calls `feinoClient.resetSession()`, clears `chatStore` |
-| `/history` | Calls `feinoClient.getHistory()`, appends result as a system message |
-| `/clear` | Clears `chatStore.messages` without resetting session |
-| `/config` | Calls `feinoClient.getConfigYaml()`, shows `ConfigYamlModal` |
-| `/profile` | Navigates to `/profile` route |
-| `/reload-plugins` | Calls `feinoClient.reloadPlugins()`, shows confirmation toast |
-| `/exit`, `/quit` | Not applicable in web UI; shows toast "Close the browser tab to exit" |
+| Command           | Action                                                                |
+| ----------------- | --------------------------------------------------------------------- |
+| `/setup`          | Opens `SettingsPanel` overlay                                         |
+| `/email-setup`    | Opens `SettingsPanel` on Email tab                                    |
+| `/yolo`           | Opens `YoloModal`                                                     |
+| `/lang`           | Opens `LangModal`                                                     |
+| `/theme`          | Opens `ThemeModal`                                                    |
+| `/reset`          | Calls `feinoClient.resetSession()`, clears `chatStore`                |
+| `/history`        | Calls `feinoClient.getHistory()`, appends result as a system message  |
+| `/clear`          | Clears `chatStore.messages` without resetting session                 |
+| `/config`         | Calls `feinoClient.getConfigYaml()`, shows `ConfigYamlModal`          |
+| `/profile`        | Navigates to `/profile` route                                         |
+| `/reload-plugins` | Calls `feinoClient.reloadPlugins()`, shows confirmation toast         |
+| `/exit`, `/quit`  | Not applicable in web UI; shows toast "Close the browser tab to exit" |
 
 ---
 
@@ -2018,7 +2060,7 @@ dev-web:
 # ── Tests ──────────────────────────────────────────────────────────
 test:
 	go test ./...
-	cd web && npm test -- --run
+	cd web && npm test -- --run --passWithNoTests
 
 # ── Clean ──────────────────────────────────────────────────────────
 clean:
@@ -2036,23 +2078,27 @@ ci: proto web
 
 ```typescript
 import { defineConfig } from "vite";
-import react            from "@vitejs/plugin-react";
-import tailwindcss      from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
   build: {
-    outDir:     "dist",
+    outDir: "dist",
     emptyOutDir: true,
-    sourcemap:  false,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor:  ["react", "react-dom", "react-router-dom"],
-          connect: ["@connectrpc/connect", "@connectrpc/connect-web", "@bufbuild/protobuf"],
-          charts:  ["recharts"],
-          md:      ["react-markdown", "rehype-highlight", "remark-gfm"],
+          vendor: ["react", "react-dom", "react-router-dom"],
+          connect: [
+            "@connectrpc/connect",
+            "@connectrpc/connect-web",
+            "@bufbuild/protobuf",
+          ],
+          charts: ["recharts"],
+          md: ["react-markdown", "rehype-highlight", "remark-gfm"],
         },
       },
     },
@@ -2117,45 +2163,45 @@ breaking:
 
 ### New Go files
 
-| File | Purpose |
-|---|---|
-| `proto/feino/v1/feino.proto` | Complete service definition |
-| `buf.yaml` | Buf module configuration |
-| `buf.gen.yaml` | Buf code generation targets |
-| `Makefile` | Build orchestration |
-| `gen/feino/v1/feino.pb.go` | Generated — do not edit |
-| `gen/feino/v1/feinov1connect/feino.connect.go` | Generated — do not edit |
-| `internal/web/server.go` | HTTP server, routing, lifecycle |
-| `internal/web/handler.go` | FeinoServiceHandler, all RPC methods |
-| `internal/web/session_manager.go` | Event fan-out, permission bridge |
-| `internal/web/metrics_hub.go` | Broadcast hub for StreamMetrics |
-| `internal/web/config_mapper.go` | config.Config ↔ ConfigProto conversion |
-| `internal/web/file_service.go` | Upload handling, ListFiles, @-token resolution |
-| `internal/web/atref.go` | @path and @token expansion for web context |
-| `internal/web/embed.go` | `//go:build web` embed directive |
-| `internal/web/embed_stub.go` | `//go:build !web` empty FS fallback |
-| `internal/web/build_session.go` | Shared session construction logic |
-| `internal/web/spa_handler.go` | SPA fallback (serve index.html for unknown paths) |
+| File                                           | Purpose                                           |
+| ---------------------------------------------- | ------------------------------------------------- |
+| `proto/feino/v1/feino.proto`                   | Complete service definition                       |
+| `buf.yaml`                                     | Buf module configuration                          |
+| `buf.gen.yaml`                                 | Buf code generation targets                       |
+| `Makefile`                                     | Build orchestration                               |
+| `gen/feino/v1/feino.pb.go`                     | Generated — do not edit                           |
+| `gen/feino/v1/feinov1connect/feino.connect.go` | Generated — do not edit                           |
+| `internal/web/server.go`                       | HTTP server, routing, lifecycle                   |
+| `internal/web/handler.go`                      | FeinoServiceHandler, all RPC methods              |
+| `internal/web/session_manager.go`              | Event fan-out, permission bridge                  |
+| `internal/web/metrics_hub.go`                  | Broadcast hub for StreamMetrics                   |
+| `internal/web/config_mapper.go`                | config.Config ↔ ConfigProto conversion            |
+| `internal/web/file_service.go`                 | Upload handling, ListFiles, @-token resolution    |
+| `internal/web/atref.go`                        | @path and @token expansion for web context        |
+| `internal/web/embed.go`                        | `//go:build web` embed directive                  |
+| `internal/web/embed_stub.go`                   | `//go:build !web` empty FS fallback               |
+| `internal/web/build_session.go`                | Shared session construction logic                 |
+| `internal/web/spa_handler.go`                  | SPA fallback (serve index.html for unknown paths) |
 
 ### Modified Go files
 
-| File | Change |
-|---|---|
-| `cmd/feino/main.go` | Add `--web`, `--web-port`, `--web-host` flags + new runtime branch |
-| `internal/tui/run.go` | Refactor session construction to call `web.BuildSession` |
-| `go.mod` | Add `connectrpc.com/connect`, promote `golang.org/x/net`, `google.golang.org/protobuf` |
+| File                  | Change                                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `cmd/feino/main.go`   | Add `--web`, `--web-port`, `--web-host` flags + new runtime branch                     |
+| `internal/tui/run.go` | Refactor session construction to call `web.BuildSession`                               |
+| `go.mod`              | Add `connectrpc.com/connect`, promote `golang.org/x/net`, `google.golang.org/protobuf` |
 
 ### New frontend files
 
 All files under `web/src/` as listed in section 8.1, plus:
 
-| File | Purpose |
-|---|---|
-| `web/index.html` | HTML shell |
-| `web/package.json` | npm manifest |
-| `web/vite.config.ts` | Vite config |
-| `web/tsconfig.json` | TypeScript config |
-| `web/src/gen/**` | Generated by buf — do not edit |
+| File                 | Purpose                        |
+| -------------------- | ------------------------------ |
+| `web/index.html`     | HTML shell                     |
+| `web/package.json`   | npm manifest                   |
+| `web/vite.config.ts` | Vite config                    |
+| `web/tsconfig.json`  | TypeScript config              |
+| `web/src/gen/**`     | Generated by buf — do not edit |
 
 ---
 
@@ -2171,6 +2217,7 @@ github.com/google/uuid           v1.6.0    UUID generation for stream/permission
 ```
 
 Install via:
+
 ```bash
 go get connectrpc.com/connect@v1.17.0
 go get google.golang.org/protobuf@v1.34.2
@@ -2183,37 +2230,37 @@ go mod tidy
 ```json
 {
   "dependencies": {
-    "@bufbuild/protobuf":         "^2.2.0",
-    "@connectrpc/connect":        "^2.0.0",
-    "@connectrpc/connect-web":    "^2.0.0",
-    "@fontsource/inter":          "^5.1.0",
+    "@bufbuild/protobuf": "^2.2.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-web": "^2.0.0",
+    "@fontsource/inter": "^5.1.0",
     "@fontsource/jetbrains-mono": "^5.1.0",
-    "clsx":                       "^2.1.0",
-    "react":                      "^18.3.0",
-    "react-dom":                  "^18.3.0",
-    "react-dropzone":             "^14.2.0",
-    "react-markdown":             "^9.0.0",
-    "react-router-dom":           "^6.26.0",
-    "recharts":                   "^2.12.0",
-    "rehype-highlight":           "^7.0.0",
-    "rehype-raw":                 "^7.0.0",
-    "remark-gfm":                 "^4.0.0",
-    "tailwind-merge":             "^2.5.0",
-    "zustand":                    "^5.0.0"
+    "clsx": "^2.1.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-dropzone": "^14.2.0",
+    "react-markdown": "^9.0.0",
+    "react-router-dom": "^6.26.0",
+    "recharts": "^2.12.0",
+    "rehype-highlight": "^7.0.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.0",
+    "tailwind-merge": "^2.5.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@bufbuild/buf":                        "^1.45.0",
-    "@connectrpc/protoc-gen-connect-es":    "^2.0.0",
-    "@bufbuild/protoc-gen-es":              "^2.2.0",
-    "@tailwindcss/vite":                    "^4.0.0",
-    "@types/react":                         "^18.3.0",
-    "@types/react-dom":                     "^18.3.0",
-    "@vitejs/plugin-react":                 "^4.3.0",
-    "highlight.js":                         "^11.10.0",
-    "tailwindcss":                          "^4.0.0",
-    "typescript":                           "^5.5.0",
-    "vite":                                 "^6.0.0",
-    "vitest":                               "^2.0.0"
+    "@bufbuild/buf": "^1.45.0",
+    "@connectrpc/protoc-gen-connect-es": "^2.0.0",
+    "@bufbuild/protoc-gen-es": "^2.2.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "highlight.js": "^11.10.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vite": "^6.0.0",
+    "vitest": "^2.0.0"
   }
 }
 ```
@@ -2259,6 +2306,7 @@ if *webMode {
 ## 16. Implementation Phases
 
 ### Phase 1 — Go Skeleton (week 1)
+
 **Goal:** `go build -tags web ./cmd/feino` succeeds; `./feino --web` starts and serves a placeholder page.
 
 - [ ] Install `buf` CLI and write `buf.yaml`, `buf.gen.yaml`
@@ -2273,6 +2321,7 @@ if *webMode {
 - [ ] Verify `go build -tags web ./...` and `go test ./...` pass
 
 ### Phase 2 — Session Bridge (week 1–2)
+
 **Goal:** `SendMessage` works end-to-end; events stream to `grpcurl` or a test client.
 
 - [ ] Write `internal/web/session_manager.go`
@@ -2285,6 +2334,7 @@ if *webMode {
 - [ ] Write integration test: `TestResolvePermission_UnblocksAgent`
 
 ### Phase 3 — Supporting RPCs (week 2–3)
+
 **Goal:** All non-streaming RPCs implemented and tested.
 
 - [ ] `GetHistory` / `ResetSession`
@@ -2298,6 +2348,7 @@ if *webMode {
 - [ ] Integration tests for each RPC
 
 ### Phase 4 — React Scaffold (week 3)
+
 **Goal:** Browser renders a functional (unstyled) chat that streams real responses.
 
 - [ ] `npm create vite@latest web -- --template react-ts`
@@ -2311,6 +2362,7 @@ if *webMode {
 - [ ] Verify end-to-end: browser sends message, assistant response streams in
 
 ### Phase 5 — TUI Parity Features (week 4)
+
 **Goal:** All TUI features available in the web UI.
 
 - [ ] `ThoughtBlock` — streaming thought display
@@ -2328,6 +2380,7 @@ if *webMode {
 - [ ] Drag-and-drop file upload
 
 ### Phase 6 — Neural Terminal Styling (week 5)
+
 **Goal:** Full visual design applied; responsive on mobile.
 
 - [ ] Write `neural-terminal.css` with all CSS custom properties
@@ -2343,6 +2396,7 @@ if *webMode {
 - [ ] MetricsPanel as drawer on mobile
 
 ### Phase 7 — Polish and Hardening (week 6)
+
 **Goal:** Production-ready; passes all tests; documented.
 
 - [ ] Accessibility audit: keyboard navigation, ARIA roles, focus management
@@ -2353,7 +2407,7 @@ if *webMode {
 - [ ] Connection-lost state (when the Go server is unreachable)
 - [ ] Load test: 10 concurrent streaming sessions
 - [ ] `go test -race ./internal/web/...`
-- [ ] `cd web && npm test -- --run`
+- [ ] `cd web && npm test -- --run --passWithNoTests`
 - [ ] Update `CLAUDE.md` with web development commands
 - [ ] Add `--web` section to usage documentation
 
@@ -2380,6 +2434,7 @@ When `--web-host 127.0.0.1` (default), no CORS headers are set — the browser e
 ### No Authentication by Default
 
 The web server does not include authentication. For personal local use, this is acceptable. For cloud/on-premise deployment, users are expected to:
+
 1. Put the server behind a reverse proxy with HTTP Basic Auth or a VPN
 2. Or expose only on a trusted LAN interface
 
@@ -2481,42 +2536,42 @@ WantedBy=multi-user.target
 
 ## 19. TUI Feature Parity Checklist
 
-| TUI Feature | Web equivalent | Component / RPC |
-|---|---|---|
-| Streaming chat | ✅ | `useChatStream` + `PartReceivedEvent` |
-| Markdown rendering | ✅ | `MarkdownRenderer` (react-markdown) |
-| Tool call display | ✅ | `ToolCallCard` (collapsible) |
-| Thought/reasoning blocks | ✅ | `ThoughtBlock` (collapsible, purple) |
-| Permission prompt | ✅ | `PermissionModal` (modal dialog) |
-| `/setup` — provider config | ✅ | `SettingsPanel` (Provider tab) |
-| `/email-setup` | ✅ | `SettingsPanel` (Email tab) |
-| `/yolo` — bypass mode | ✅ | `YoloModal` + `SetBypassMode` RPC |
-| `/lang` — language switch | ✅ | `LangModal` + `SetLanguage` RPC |
-| `/theme` — theme switch | ✅ | `ThemeModal` + `SetTheme` RPC |
-| `/reset` — clear session | ✅ | `ResetSession` RPC |
-| `/history` — view history | ✅ | `HistoryView` + `GetHistory` RPC |
-| `/clear` — clear view | ✅ | `chatStore.clear()` |
-| `/config` — view YAML | ✅ | `ConfigYamlModal` + `GetConfigYAML` RPC |
-| `/profile` — view profile | ✅ | `ProfilePage` route |
-| `/reload-plugins` | ✅ | `ReloadPlugins` RPC |
-| `/quit` / `/exit` | ✅ (toast: close browser tab) | n/a |
-| `@path` file references | ✅ | `AtPathMenu` + `ListFiles` + server expand |
-| Drag-and-drop file upload | ✅ (web-only bonus) | `react-dropzone` + `UploadFile` RPC |
-| Slash command autocomplete | ✅ | `SlashCommandMenu` |
-| Metrics sidebar (latency) | ✅ | `LatencySparkline` + `StreamMetrics` |
-| Metrics sidebar (tokens) | ✅ | `TokenBarChart` |
-| ReAct state display | ✅ | `StatusBar` + `StateChangedEvent` |
-| Message queue indicator | ✅ | `QueuePositionEvent` → `MessageQueue` |
-| Session busy / cancel | ✅ | `CancelTurn` RPC + Cancel button |
-| Memory manager | ✅ | `MemoryManager` + memory RPCs |
-| User profile form | ✅ | `ProfilePage` + `UpdateConfig` RPC |
-| Theme: dark/light/auto/neo | ✅ | `ThemeProvider` + CSS custom properties |
-| Bypass mode indicator | ✅ | Amber `⚡ YOLO` + countdown in status bar |
-| Yolo active badge | ✅ | `sessionStore.bypassActive` |
-| Error display | ✅ | `appendErrorText` equivalent in `MessageBubble` |
-| Config YAML view | ✅ | `ConfigYamlModal` |
-| API key masking | ✅ | `has_api_key` proto flag + masked input |
+| TUI Feature                | Web equivalent                | Component / RPC                                 |
+| -------------------------- | ----------------------------- | ----------------------------------------------- |
+| Streaming chat             | ✅                            | `useChatStream` + `PartReceivedEvent`           |
+| Markdown rendering         | ✅                            | `MarkdownRenderer` (react-markdown)             |
+| Tool call display          | ✅                            | `ToolCallCard` (collapsible)                    |
+| Thought/reasoning blocks   | ✅                            | `ThoughtBlock` (collapsible, purple)            |
+| Permission prompt          | ✅                            | `PermissionModal` (modal dialog)                |
+| `/setup` — provider config | ✅                            | `SettingsPanel` (Provider tab)                  |
+| `/email-setup`             | ✅                            | `SettingsPanel` (Email tab)                     |
+| `/yolo` — bypass mode      | ✅                            | `YoloModal` + `SetBypassMode` RPC               |
+| `/lang` — language switch  | ✅                            | `LangModal` + `SetLanguage` RPC                 |
+| `/theme` — theme switch    | ✅                            | `ThemeModal` + `SetTheme` RPC                   |
+| `/reset` — clear session   | ✅                            | `ResetSession` RPC                              |
+| `/history` — view history  | ✅                            | `HistoryView` + `GetHistory` RPC                |
+| `/clear` — clear view      | ✅                            | `chatStore.clear()`                             |
+| `/config` — view YAML      | ✅                            | `ConfigYamlModal` + `GetConfigYAML` RPC         |
+| `/profile` — view profile  | ✅                            | `ProfilePage` route                             |
+| `/reload-plugins`          | ✅                            | `ReloadPlugins` RPC                             |
+| `/quit` / `/exit`          | ✅ (toast: close browser tab) | n/a                                             |
+| `@path` file references    | ✅                            | `AtPathMenu` + `ListFiles` + server expand      |
+| Drag-and-drop file upload  | ✅ (web-only bonus)           | `react-dropzone` + `UploadFile` RPC             |
+| Slash command autocomplete | ✅                            | `SlashCommandMenu`                              |
+| Metrics sidebar (latency)  | ✅                            | `LatencySparkline` + `StreamMetrics`            |
+| Metrics sidebar (tokens)   | ✅                            | `TokenBarChart`                                 |
+| ReAct state display        | ✅                            | `StatusBar` + `StateChangedEvent`               |
+| Message queue indicator    | ✅                            | `QueuePositionEvent` → `MessageQueue`           |
+| Session busy / cancel      | ✅                            | `CancelTurn` RPC + Cancel button                |
+| Memory manager             | ✅                            | `MemoryManager` + memory RPCs                   |
+| User profile form          | ✅                            | `ProfilePage` + `UpdateConfig` RPC              |
+| Theme: dark/light/auto/neo | ✅                            | `ThemeProvider` + CSS custom properties         |
+| Bypass mode indicator      | ✅                            | Amber `⚡ YOLO` + countdown in status bar       |
+| Yolo active badge          | ✅                            | `sessionStore.bypassActive`                     |
+| Error display              | ✅                            | `appendErrorText` equivalent in `MessageBubble` |
+| Config YAML view           | ✅                            | `ConfigYamlModal`                               |
+| API key masking            | ✅                            | `has_api_key` proto flag + masked input         |
 
 ---
 
-*End of Document*
+_End of Document_

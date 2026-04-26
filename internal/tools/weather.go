@@ -145,7 +145,8 @@ func newWeatherCurrentTool(logger *slog.Logger) Tool {
 			"Returns temperature, feels-like, humidity, precipitation, wind speed/direction, and a human-readable condition description. "+
 			"Location can be a city name (e.g. \"Paris\", \"Tokyo, Japan\") or a \"lat,lon\" coordinate pair.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"location": map[string]any{
 					"type":        "string",
@@ -218,7 +219,8 @@ func newWeatherForecastTool(logger *slog.Logger) Tool {
 			"Returns daily max/min temperature, precipitation sum, wind speed, and condition for each day. "+
 			"Location can be a city name or a \"lat,lon\" coordinate pair.",
 		map[string]any{
-			"type": "object",
+			"type":                 "object",
+			"additionalProperties": false,
 			"properties": map[string]any{
 				"location": map[string]any{
 					"type":        "string",

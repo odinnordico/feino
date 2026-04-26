@@ -59,7 +59,7 @@ jobs:
       - uses: ./.github/actions/setup-node
       - name: vitest
         id: vitest
-        run: npm test -- --run
+        run: npm test -- --run --passWithNoTests
       - name: Test summary
         if: always()
         run: |

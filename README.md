@@ -892,7 +892,7 @@ npm run dev        # http://localhost:5173
 npm run typecheck
 
 # Tests
-npm test -- --run
+npm test -- --run --passWithNoTests
 
 # Production build (embeds into binary)
 npm run build
@@ -946,13 +946,13 @@ buf generate                       # requires buf CLI
 
 # Frontend
 cd internal/web/ui
-npm run dev                        # Vite dev server (proxy to :7700)
-npm run typecheck                  # tsc --noEmit
-npm test -- --run                  # vitest
-npm run build                      # production build
+npm run dev                            # Vite dev server (proxy to :7700)
+npm run typecheck                      # tsc --noEmit
+npm test -- --run --passWithNoTests    # vitest
+npm run build                          # production build
 
 # All-in-one CI check
-make ci                            # proto + web + test-race + lint + build
+make ci                                # proto + web + test-race + lint + build
 ```
 
 ---
