@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/odinnordico/feino/internal/app"
 	"github.com/odinnordico/feino/internal/config"
@@ -210,7 +211,7 @@ func TestRun_MultiTurn(t *testing.T) {
 	if err := Run(context.Background(), sess, in, &out); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-
+	time.Sleep(2 * time.Second)
 	got := out.String()
 	count := strings.Count(got, "pong")
 	if count != 3 {
