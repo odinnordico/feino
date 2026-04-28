@@ -26,9 +26,11 @@ import (
 	"sync"
 	"time"
 
+	cdpaccessibility "github.com/chromedp/cdproto/accessibility"
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/cdp"
 	cdpdom "github.com/chromedp/cdproto/dom"
+	"github.com/chromedp/cdproto/emulation"
 	cdpinput "github.com/chromedp/cdproto/input"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
@@ -62,13 +64,398 @@ type browserPool struct {
 	// tabCtx is the currently active tab context.
 	tabCtx  context.Context
 	tabCncl context.CancelFunc
+
+	// console buffers console.* messages and uncaught exceptions captured
+	// from each tab the pool attaches to. Survives tab switches so the
+	// browser_console_log tool can return everything that happened across
+	// a multi-step session.
+	console *consoleBuffer
+
+	// consoleMu guards consoleCncl. It is separate from mu so that
+	// attachConsoleCapture can be called from both lock-held and non-lock-held
+	// call sites without risk of deadlock.
+	consoleMu   sync.Mutex
+	consoleCncl *consoleListenerToken
+
+	// networkBuf captures HTTP requests/responses for browser_network.
+	// networkMu / networkCncl follow the same pattern as consoleMu / consoleCncl.
+	networkBuf  *networkBuffer
+	networkMu   sync.Mutex
+	networkCncl *consoleListenerToken
 }
+
+// consoleListenerToken wraps a context.CancelFunc so that identity comparisons
+// (pointer equality) can distinguish the current token from a stale one.
+type consoleListenerToken struct{ cancel context.CancelFunc }
+
+// consoleBufferDefaultMax bounds the per-pool console-message ring buffer.
+// 500 entries comfortably covers a debugging session without unbounded
+// growth on chatty pages (e.g. apps that log every render).
+const consoleBufferDefaultMax = 500
 
 func newBrowserPool(logger *slog.Logger, debugPort int) *browserPool {
 	if debugPort <= 0 {
 		debugPort = defaultDebugPort
 	}
-	return &browserPool{logger: logger, debugPort: debugPort}
+	return &browserPool{
+		logger:     logger,
+		debugPort:  debugPort,
+		console:    newConsoleBuffer(consoleBufferDefaultMax),
+		networkBuf: newNetworkBuffer(networkBufferDefaultMax),
+	}
+}
+
+// ── Console-message buffer ────────────────────────────────────────────────────
+
+// consoleEntry is one captured console.* call or uncaught exception.
+type consoleEntry struct {
+	Level     string    `json:"level"`
+	Text      string    `json:"text"`
+	Source    string    `json:"source,omitempty"`
+	Line      int       `json:"line,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// consoleBuffer is a bounded ring of console entries with its own mutex so
+// the chromedp event-loop goroutine can write to it without blocking on
+// the pool's main mutex.
+type consoleBuffer struct {
+	mu      sync.Mutex
+	entries []consoleEntry
+	maxSize int
+}
+
+func newConsoleBuffer(maxSize int) *consoleBuffer {
+	if maxSize <= 0 {
+		maxSize = consoleBufferDefaultMax
+	}
+	return &consoleBuffer{maxSize: maxSize}
+}
+
+// add records one entry, dropping the oldest when at capacity.
+func (b *consoleBuffer) add(e consoleEntry) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.entries) >= b.maxSize {
+		b.entries = b.entries[1:]
+	}
+	b.entries = append(b.entries, e)
+}
+
+// consoleQuery filters [consoleBuffer.read]'s output.
+type consoleQuery struct {
+	// level is "" or "all" → no level filter; otherwise must match exactly.
+	level string
+	// substring is matched case-insensitively against entry.Text. Empty = no
+	// filter. Caller must lower-case before passing.
+	substring string
+	// clear empties the buffer (after collecting matches) when true.
+	clear bool
+}
+
+// read returns a fresh slice of matching entries in chronological order
+// (oldest first). When q.clear is true the buffer is emptied even if the
+// matched slice excludes some entries — `clear` is "consume everything".
+func (b *consoleBuffer) read(q consoleQuery) []consoleEntry {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]consoleEntry, 0, len(b.entries))
+	for _, e := range b.entries {
+		if q.level != "" && q.level != "all" && e.Level != q.level {
+			continue
+		}
+		if q.substring != "" && !strings.Contains(strings.ToLower(e.Text), q.substring) {
+			continue
+		}
+		out = append(out, e)
+	}
+	if q.clear {
+		b.entries = b.entries[:0]
+	}
+	return out
+}
+
+// attachConsoleCapture enables Runtime events on the given tab context and
+// registers a chromedp listener that copies every console.* call and
+// uncaught exception into pool.console. Failure to enable the runtime
+// domain is logged as a warning rather than fatal — the rest of the pool
+// still works, just without console capture for this tab.
+//
+// Each call cancels the previous listener before registering the new one,
+// so at most one active console listener exists at any time.
+func (pool *browserPool) attachConsoleCapture(tabCtx context.Context) {
+	// Cancel any previously registered listener immediately rather than
+	// relying on chromedp's lazy cleanup (which only fires on the next event).
+	pool.consoleMu.Lock()
+	if pool.consoleCncl != nil {
+		pool.consoleCncl.cancel()
+	}
+	listenerCtx, listenerCncl := context.WithCancel(tabCtx)
+	tok := &consoleListenerToken{cancel: listenerCncl}
+	pool.consoleCncl = tok
+	pool.consoleMu.Unlock()
+
+	enableCtx, enableCancel := context.WithTimeout(tabCtx, browserOpTimeout)
+	defer enableCancel()
+	if err := chromedp.Run(enableCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return cdpruntime.Enable().Do(ctx)
+	})); err != nil {
+		// Roll back: clear consoleCncl only if it still points to our token.
+		pool.consoleMu.Lock()
+		if pool.consoleCncl == tok {
+			pool.consoleCncl = nil
+		}
+		pool.consoleMu.Unlock()
+		listenerCncl()
+		pool.logger.Warn("browser: cannot enable runtime events for console capture", "error", err)
+		return
+	}
+	chromedp.ListenTarget(listenerCtx, func(ev any) {
+		switch e := ev.(type) {
+		case *cdpruntime.EventConsoleAPICalled:
+			pool.console.add(consoleEntryFromAPICall(e))
+		case *cdpruntime.EventExceptionThrown:
+			pool.console.add(consoleEntryFromException(e))
+		}
+	})
+}
+
+// ── Network capture buffer ────────────────────────────────────────────────────
+
+const networkBufferDefaultMax = 500
+
+// networkEntry records one completed (or failed) HTTP request/response pair.
+type networkEntry struct {
+	RequestID  string    `json:"request_id"`
+	URL        string    `json:"url"`
+	Method     string    `json:"method"`
+	Status     int       `json:"status,omitempty"`
+	MimeType   string    `json:"mime_type,omitempty"`
+	Timestamp  time.Time `json:"timestamp"`
+	DurationMs float64   `json:"duration_ms,omitempty"`
+	Done       bool      `json:"done"`
+	Failed     bool      `json:"failed,omitempty"`
+	FailReason string    `json:"fail_reason,omitempty"`
+}
+
+// networkBuffer is a bounded ring of completed requests plus a pending map
+// for in-flight ones. Both are guarded by a single mutex that is only held
+// for pointer swaps and slice appends — never across I/O.
+type networkBuffer struct {
+	mu        sync.Mutex
+	completed []networkEntry
+	pending   map[network.RequestID]*networkEntry
+	maxSize   int
+}
+
+func newNetworkBuffer(maxSize int) *networkBuffer {
+	if maxSize <= 0 {
+		maxSize = networkBufferDefaultMax
+	}
+	return &networkBuffer{
+		pending: make(map[network.RequestID]*networkEntry),
+		maxSize: maxSize,
+	}
+}
+
+func (b *networkBuffer) onRequest(e *network.EventRequestWillBeSent) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.pending[e.RequestID] = &networkEntry{
+		RequestID: string(e.RequestID),
+		URL:       e.Request.URL,
+		Method:    e.Request.Method,
+		Timestamp: time.Now(),
+	}
+}
+
+func (b *networkBuffer) onResponse(e *network.EventResponseReceived) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if entry, ok := b.pending[e.RequestID]; ok {
+		entry.Status = int(e.Response.Status)
+		entry.MimeType = e.Response.MimeType
+	}
+}
+
+func (b *networkBuffer) onFinished(e *network.EventLoadingFinished) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if entry, ok := b.pending[e.RequestID]; ok {
+		entry.Done = true
+		entry.DurationMs = float64(time.Since(entry.Timestamp).Nanoseconds()) / 1e6
+		delete(b.pending, e.RequestID)
+		b.addLocked(*entry)
+	}
+}
+
+func (b *networkBuffer) onFailed(e *network.EventLoadingFailed) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if entry, ok := b.pending[e.RequestID]; ok {
+		entry.Done = true
+		entry.Failed = true
+		entry.FailReason = e.ErrorText
+		entry.DurationMs = float64(time.Since(entry.Timestamp).Nanoseconds()) / 1e6
+		delete(b.pending, e.RequestID)
+		b.addLocked(*entry)
+	}
+}
+
+func (b *networkBuffer) addLocked(e networkEntry) {
+	if len(b.completed) >= b.maxSize {
+		b.completed = b.completed[1:]
+	}
+	b.completed = append(b.completed, e)
+}
+
+type networkQuery struct {
+	urlFilter      string
+	method         string
+	statusMin      int
+	statusMax      int
+	limit          int
+	includePending bool
+	clear          bool
+}
+
+func (b *networkBuffer) read(q networkQuery) []networkEntry {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	var result []networkEntry
+	for _, e := range b.completed {
+		if networkEntryMatches(e, q) {
+			result = append(result, e)
+		}
+	}
+	if q.includePending {
+		for _, e := range b.pending {
+			if networkEntryMatches(*e, q) {
+				result = append(result, *e)
+			}
+		}
+	}
+	if q.limit > 0 && len(result) > q.limit {
+		result = result[len(result)-q.limit:]
+	}
+	if q.clear {
+		b.completed = nil
+	}
+	return result
+}
+
+func networkEntryMatches(e networkEntry, q networkQuery) bool {
+	if q.urlFilter != "" && !strings.Contains(strings.ToLower(e.URL), strings.ToLower(q.urlFilter)) {
+		return false
+	}
+	if q.method != "" && !strings.EqualFold(e.Method, q.method) {
+		return false
+	}
+	if q.statusMin > 0 && e.Status < q.statusMin {
+		return false
+	}
+	if q.statusMax > 0 && e.Status > q.statusMax {
+		return false
+	}
+	return true
+}
+
+// attachNetworkCapture enables Network events and registers a lifetime
+// listener that writes request/response pairs into pool.networkBuf.
+// At most one active listener exists at any time (same token pattern as
+// attachConsoleCapture).
+func (pool *browserPool) attachNetworkCapture(tabCtx context.Context) {
+	pool.networkMu.Lock()
+	if pool.networkCncl != nil {
+		pool.networkCncl.cancel()
+	}
+	listenerCtx, listenerCncl := context.WithCancel(tabCtx)
+	tok := &consoleListenerToken{cancel: listenerCncl}
+	pool.networkCncl = tok
+	pool.networkMu.Unlock()
+
+	enableCtx, enableCancel := context.WithTimeout(tabCtx, browserOpTimeout)
+	defer enableCancel()
+	if err := chromedp.Run(enableCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return network.Enable().Do(ctx)
+	})); err != nil {
+		pool.networkMu.Lock()
+		if pool.networkCncl == tok {
+			pool.networkCncl = nil
+		}
+		pool.networkMu.Unlock()
+		listenerCncl()
+		pool.logger.Warn("browser: cannot enable network events for capture", "error", err)
+		return
+	}
+	chromedp.ListenTarget(listenerCtx, func(ev any) {
+		switch e := ev.(type) {
+		case *network.EventRequestWillBeSent:
+			pool.networkBuf.onRequest(e)
+		case *network.EventResponseReceived:
+			pool.networkBuf.onResponse(e)
+		case *network.EventLoadingFinished:
+			pool.networkBuf.onFinished(e)
+		case *network.EventLoadingFailed:
+			pool.networkBuf.onFailed(e)
+		}
+	})
+}
+
+// remoteObjectToString reduces a CDP RemoteObject to a readable string.
+// Primitives (strings, numbers, bools, null) come through Value as JSON;
+// strings get unwrapped so console.log("hi") yields "hi" rather than `"hi"`.
+// Objects/functions don't carry a Value (they're handles); fall back to
+// Description, which is what DevTools shows.
+func remoteObjectToString(arg *cdpruntime.RemoteObject) string {
+	if arg == nil {
+		return ""
+	}
+	if len(arg.Value) > 0 {
+		var s string
+		if err := json.Unmarshal(arg.Value, &s); err == nil {
+			return s
+		}
+		return string(arg.Value)
+	}
+	return arg.Description
+}
+
+func consoleEntryFromAPICall(e *cdpruntime.EventConsoleAPICalled) consoleEntry {
+	parts := make([]string, 0, len(e.Args))
+	for _, a := range e.Args {
+		parts = append(parts, remoteObjectToString(a))
+	}
+	entry := consoleEntry{
+		Level:     string(e.Type),
+		Text:      strings.Join(parts, " "),
+		Timestamp: time.Now().UTC(),
+	}
+	if e.StackTrace != nil && len(e.StackTrace.CallFrames) > 0 {
+		cf := e.StackTrace.CallFrames[0]
+		entry.Source = cf.URL
+		entry.Line = int(cf.LineNumber)
+	}
+	return entry
+}
+
+func consoleEntryFromException(e *cdpruntime.EventExceptionThrown) consoleEntry {
+	entry := consoleEntry{
+		Level:     "error",
+		Timestamp: time.Now().UTC(),
+	}
+	if e.ExceptionDetails == nil {
+		entry.Text = "(unknown JS exception)"
+		return entry
+	}
+	entry.Text = e.ExceptionDetails.Text
+	if msg := remoteObjectToString(e.ExceptionDetails.Exception); msg != "" && msg != entry.Text {
+		entry.Text = entry.Text + ": " + msg
+	}
+	entry.Source = e.ExceptionDetails.URL
+	entry.Line = int(e.ExceptionDetails.LineNumber)
+	return entry
 }
 
 // ensureConnected connects to an existing browser or launches a new one.
@@ -189,6 +576,8 @@ func (pool *browserPool) connectRemote(wsURL string) bool {
 	pool.allocCncl = allocCncl
 	pool.tabCtx = tabCtx
 	pool.tabCncl = tabCncl
+	pool.attachConsoleCapture(tabCtx)
+	pool.attachNetworkCapture(tabCtx)
 	return true
 }
 
@@ -225,6 +614,8 @@ func (pool *browserPool) launch() error {
 	pool.allocCncl = allocCncl
 	pool.tabCtx = tabCtx
 	pool.tabCncl = tabCncl
+	pool.attachConsoleCapture(tabCtx)
+	pool.attachNetworkCapture(tabCtx)
 	return nil
 }
 
@@ -303,6 +694,140 @@ func (pool *browserPool) switchTab(targetID cdptarget.ID) error {
 	pool.tabCtx = newCtx
 	pool.tabCncl = newCncl
 	pool.mu.Unlock()
+
+	pool.attachConsoleCapture(newCtx)
+	pool.attachNetworkCapture(newCtx)
+
+	if oldCncl != nil {
+		oldCncl()
+	}
+	return nil
+}
+
+// activeTargetID returns the chromedp Target.TargetID currently associated
+// with the active tab context, or "" when no tab is attached or chromedp
+// has not yet populated the Target on the context (e.g. before the first
+// chromedp.Run completes).
+//
+// Reads pool.tabCtx — caller is responsible for any locking when consistency
+// with other pool fields matters.
+func (pool *browserPool) activeTargetID() cdptarget.ID {
+	if pool.tabCtx == nil {
+		return ""
+	}
+	cdpCtx := chromedp.FromContext(pool.tabCtx)
+	if cdpCtx == nil || cdpCtx.Target == nil {
+		return ""
+	}
+	return cdpCtx.Target.TargetID
+}
+
+// closeTab closes the tab identified by targetID. The behaviour depends on
+// whether the closed tab was the pool's active one:
+//
+//   - Closing a non-active tab: the pool is untouched. The active tab and
+//     its context remain valid for subsequent calls.
+//   - Closing the active tab: the active context is replaced with a fresh
+//     one attached to another remaining page (preferring non-chrome:// URLs).
+//   - Closing the active tab when no other pages remain: the pool is fully
+//     torn down (ensureConnected on the next call relaunches a browser).
+//
+// The previous implementation used [browserPool.close] unconditionally,
+// which cancelled the entire allocator after every close — even closes of
+// non-active tabs forced the next call to reconnect. This split preserves
+// the long-lived allocator and only swaps the small tab-context portion.
+func (pool *browserPool) closeTab(targetID cdptarget.ID) error {
+	// Phase 1: snapshot under lock.
+	pool.mu.Lock()
+	if err := pool.ensureConnected(); err != nil {
+		pool.mu.Unlock()
+		return err
+	}
+	activeID := pool.activeTargetID()
+	tabCtx := pool.tabCtx
+	allocCtx := pool.allocCtx
+	snapGen := pool.gen
+	pool.mu.Unlock()
+
+	isActive := targetID == activeID
+
+	// Phase 2: enumerate remaining targets BEFORE closing if we're closing
+	// the active tab — afterwards the tab context becomes unusable for
+	// further CDP commands. For non-active closes we don't need this.
+	var remaining []*cdptarget.Info
+	if isActive {
+		listCtx, listCancel := context.WithTimeout(tabCtx, browserOpTimeout)
+		listErr := chromedp.Run(listCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+			t, err := chromedp.Targets(ctx)
+			remaining = t
+			return err
+		}))
+		listCancel()
+		if listErr != nil {
+			return fmt.Errorf("list remaining targets: %w", listErr)
+		}
+	}
+
+	// Phase 3: close the target. CloseTarget is a browser-domain command, so
+	// we can issue it on any tab context — including the one being closed.
+	closeCtx, closeCancel := context.WithTimeout(tabCtx, browserOpTimeout)
+	defer closeCancel()
+	if err := chromedp.Run(closeCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		return cdptarget.CloseTarget(targetID).Do(ctx)
+	})); err != nil {
+		return fmt.Errorf("close target %s: %w", targetID, err)
+	}
+
+	if !isActive {
+		// Non-active close: the pool's active tab is unchanged, nothing else
+		// to do.
+		return nil
+	}
+
+	// Phase 4: pick a successor active tab (skip the one we just closed and
+	// any chrome:// pages — those are internal browser tabs the user almost
+	// never wants the agent attached to).
+	var newActive cdptarget.ID
+	for _, t := range remaining {
+		if t.Type == "page" && t.TargetID != targetID && !strings.HasPrefix(t.URL, "chrome://") {
+			newActive = t.TargetID
+			break
+		}
+	}
+	if newActive == "" {
+		// No other usable pages — full pool teardown is the right answer
+		// (next call will probe / launch a fresh browser).
+		pool.mu.Lock()
+		pool.close()
+		pool.mu.Unlock()
+		return nil
+	}
+
+	// Phase 5: attach a new chromedp context to the successor target. Same
+	// TOCTOU-safe protocol as switchTab — abort if the pool reconnected
+	// while we were doing CDP work outside the lock.
+	newCtx, newCncl := chromedp.NewContext(allocCtx,
+		chromedp.WithTargetID(newActive),
+		chromedp.WithLogf(pool.logf),
+	)
+	if err := chromedp.Run(newCtx); err != nil {
+		newCncl()
+		return fmt.Errorf("attach to remaining tab %s: %w", newActive, err)
+	}
+
+	pool.mu.Lock()
+	if pool.gen != snapGen {
+		pool.mu.Unlock()
+		newCncl()
+		return fmt.Errorf("browser reconnected during close; try again")
+	}
+	oldCncl := pool.tabCncl
+	pool.tabCtx = newCtx
+	pool.tabCncl = newCncl
+	pool.mu.Unlock()
+
+	pool.attachConsoleCapture(newCtx)
+	pool.attachNetworkCapture(newCtx)
 
 	if oldCncl != nil {
 		oldCncl()
@@ -675,18 +1200,26 @@ func NewBrowserTools(logger *slog.Logger, debugPort int) []Tool {
 		newBrowserSelectTool(pool, logger),
 		newBrowserKeyTool(pool, logger),
 		newBrowserHoverTool(pool, logger),
+		newBrowserDragTool(pool, logger),
 		newBrowserScreenshotTool(pool, logger),
 		newBrowserGetTextTool(pool, logger),
 		newBrowserGetHTMLTool(pool, logger),
 		newBrowserEvalTool(pool, logger),
+		newBrowserConsoleLogTool(pool, logger),
 		newBrowserGetCookiesTool(pool, logger),
 		newBrowserSetCookiesTool(pool, logger),
+		newBrowserDeleteCookiesTool(pool, logger),
+		newBrowserStorageTool(pool, logger),
 		newBrowserWaitTool(pool, logger),
 		newBrowserScrollTool(pool, logger),
+		newBrowserSetViewportTool(pool, logger),
 		newBrowserInfoTool(pool, logger),
 		newBrowserSwitchTabTool(pool, logger),
 		newBrowserNewTabTool(pool, logger),
 		newBrowserCloseTabTool(pool, logger),
+		newBrowserDialogTool(pool, logger),
+		newBrowserNetworkTool(pool, logger),
+		newBrowserAccessibilityTool(pool, logger),
 	}
 }
 
@@ -1255,17 +1788,32 @@ func newBrowserSelectTool(pool *browserPool, logger *slog.Logger) Tool {
 			},
 			"value": map[string]any{
 				"type":        "string",
-				"description": "Select the option with this value attribute.",
+				"description": "Select a single option by its value attribute. Ignored when 'values' is provided.",
 			},
 			"text": map[string]any{
 				"type":        "string",
-				"description": "Select the option whose visible text matches (exact first, then partial). Used when 'value' is not provided.",
+				"description": "Select a single option by visible text (exact match first, then partial). Ignored when 'values' is provided.",
+			},
+			"values": map[string]any{
+				"type":        "array",
+				"items":       map[string]any{"type": "string"},
+				"minItems":    1,
+				"description": "Select one or more options by their value attributes. Use for <select multiple> elements or to select several values at once. Unselects all currently selected options first. Takes precedence over 'value' and 'text'.",
 			},
 			"frame": frameSchemaProperty(),
 		},
 		"required": []string{"selector"},
+		// Require at least one of value / text / values so the error surfaces
+		// before the tool call reaches the browser.
+		"anyOf": []any{
+			map[string]any{"required": []string{"value"}},
+			map[string]any{"required": []string{"text"}},
+			map[string]any{"required": []string{"values"}},
+		},
 	}
-	return NewTool("browser_select", "Select an option in a <select> dropdown by value or visible text.", schema,
+	return NewTool("browser_select",
+		"Select option(s) in a <select> dropdown. Exactly one of 'value' (string), 'text' (string), or 'values' (array) must be provided.",
+		schema,
 		func(params map[string]any) ToolResult {
 			selector, ok := getString(params, "selector")
 			if !ok || selector == "" {
@@ -1275,22 +1823,58 @@ func newBrowserSelectTool(pool *browserPool, logger *slog.Logger) Tool {
 			text := getStringDefault(params, "text", "")
 			frame := getStringDefault(params, "frame", "")
 
-			if value == "" && text == "" {
-				return NewToolResult("", fmt.Errorf("browser_select: provide 'value' or 'text'"))
+			// Extract 'values' array (JSON arrays arrive as []any after decode).
+			var multiValues []string
+			if raw, ok := params["values"]; ok {
+				switch v := raw.(type) {
+				case []any:
+					for _, item := range v {
+						if s, ok := item.(string); ok {
+							multiValues = append(multiValues, s)
+						}
+					}
+				case []string:
+					multiValues = v
+				}
+			}
+
+			if len(multiValues) == 0 && value == "" && text == "" {
+				return NewToolResult("", fmt.Errorf("browser_select: provide 'values', 'value', or 'text'"))
 			}
 
 			var result any
 			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
-				// resolveFrame validates the iframe up-front (existence,
-				// element type, same-origin) so the JS we send below can
-				// safely assume contentDocument is reachable. The returned
-				// opts also scope WaitVisible / SetValue into the iframe.
 				opts, err := resolveFrame(ctx, frame)
 				if err != nil {
 					return err
 				}
 				if err := chromedp.WaitVisible(selector, opts...).Do(ctx); err != nil {
 					return err
+				}
+
+				// Multi-select: reset all selected options then select each
+				// matching value, then dispatch change/input events.
+				if len(multiValues) > 0 {
+					targetsJSON, _ := json.Marshal(multiValues)
+					script := fmt.Sprintf(`(function(){
+						%s
+						var sel = doc.querySelector(%q);
+						if (!sel) return "error: element not found";
+						var targets = %s;
+						Array.from(sel.options).forEach(function(opt){ opt.selected = false; });
+						var matched = [];
+						Array.from(sel.options).forEach(function(opt){
+							if (targets.indexOf(opt.value) >= 0) {
+								opt.selected = true;
+								matched.push(opt.value);
+							}
+						});
+						if (matched.length === 0) return "error: no options matched: " + targets.join(", ");
+						sel.dispatchEvent(new Event('change',{bubbles:true}));
+						sel.dispatchEvent(new Event('input',{bubbles:true}));
+						return "selected " + matched.length + " option(s): " + matched.join(", ");
+					})()`, selectDocScopeJS(frame), selector, targetsJSON)
+					return chromedp.EvaluateAsDevTools(script, &result).Do(ctx)
 				}
 
 				if value != "" {
@@ -1362,6 +1946,56 @@ func selectDocScopeJS(frameSelector string) string {
 			`var doc = __frame.contentDocument;`,
 		frameSelector, frameSelector,
 	)
+}
+
+// hoverAbsPosJS returns a JS IIFE that resolves the absolute viewport centre
+// of elementSelector. When frameSelector is empty it queries the top frame
+// directly; when set it sums the iframe's top-frame rect with the inner
+// element rect so CDP receives outer-viewport coordinates.
+func hoverAbsPosJS(frameSelector, elementSelector string) string {
+	if frameSelector == "" {
+		return fmt.Sprintf(`(function(){
+			var el=document.querySelector(%q);
+			if(!el)return"";
+			var r=el.getBoundingClientRect();
+			return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});
+		})()`, elementSelector)
+	}
+	return fmt.Sprintf(`(function(){
+		var __frame=document.querySelector(%q);
+		if(!__frame||!__frame.contentDocument)return"error: frame inaccessible";
+		var fr=__frame.getBoundingClientRect();
+		var el=__frame.contentDocument.querySelector(%q);
+		if(!el)return"";
+		var er=el.getBoundingClientRect();
+		return JSON.stringify({x:fr.left+er.left+er.width/2,y:fr.top+er.top+er.height/2});
+	})()`, frameSelector, elementSelector)
+}
+
+// hoverEventsJS returns a JS IIFE that dispatches synthetic mouseover /
+// mouseenter / mousemove events. When frameSelector is set the events are
+// created with the iframe's own contentWindow.MouseEvent so iframe-internal
+// listeners fire in the correct JS realm.
+func hoverEventsJS(frameSelector, elementSelector string) string {
+	if frameSelector == "" {
+		return fmt.Sprintf(`(function(){
+			var el=document.querySelector(%q);
+			if(!el)return;
+			["mouseover","mouseenter","mousemove"].forEach(function(t){
+				el.dispatchEvent(new MouseEvent(t,{bubbles:true,cancelable:true}));
+			});
+		})()`, elementSelector)
+	}
+	return fmt.Sprintf(`(function(){
+		var __frame=document.querySelector(%q);
+		if(!__frame||!__frame.contentDocument)return;
+		var el=__frame.contentDocument.querySelector(%q);
+		if(!el)return;
+		var __win=__frame.contentWindow;
+		["mouseover","mouseenter","mousemove"].forEach(function(t){
+			el.dispatchEvent(new __win.MouseEvent(t,{bubbles:true,cancelable:true}));
+		});
+	})()`, frameSelector, elementSelector)
 }
 
 // ── browser_key ───────────────────────────────────────────────────────────────
@@ -1442,6 +2076,7 @@ func newBrowserHoverTool(pool *browserPool, logger *slog.Logger) Tool {
 				"type":        "string",
 				"description": "CSS selector of the element to hover over.",
 			},
+			"frame": frameSchemaProperty(),
 		},
 		"required": []string{"selector"},
 	}
@@ -1451,33 +2086,29 @@ func newBrowserHoverTool(pool *browserPool, logger *slog.Logger) Tool {
 			if !ok || selector == "" {
 				return NewToolResult("", fmt.Errorf("browser_hover: 'selector' is required"))
 			}
+			frame := getStringDefault(params, "frame", "")
 
-			// Step 1: get element center in viewport coordinates.
-			posScript := fmt.Sprintf(`(function(){
-				var el = document.querySelector(%q);
-				if (!el) return "";
-				var r = el.getBoundingClientRect();
-				return JSON.stringify({x: r.left + r.width/2, y: r.top + r.height/2});
-			})()`, selector)
-
-			// Step 2: dispatch JS mouse events (for JS-driven menus).
-			jsScript := fmt.Sprintf(`(function(){
-				var el = document.querySelector(%q);
-				if (!el) return;
-				["mouseover","mouseenter","mousemove"].forEach(function(t){
-					el.dispatchEvent(new MouseEvent(t,{bubbles:true,cancelable:true}));
-				});
-			})()`, selector)
-
+			// Step 1: validate frame (same-origin check) + wait for element +
+			// read absolute viewport centre. hoverAbsPosJS translates iframe-local
+			// rect to outer-viewport coords when frame is set.
 			var posJSON string
-			if err := pool.runDefault(
-				chromedp.WaitVisible(selector, chromedp.ByQuery),
-				chromedp.EvaluateAsDevTools(posScript, &posJSON),
-			); err != nil {
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				opts, err := resolveFrame(ctx, frame)
+				if err != nil {
+					return err
+				}
+				if err := chromedp.WaitVisible(selector, opts...).Do(ctx); err != nil {
+					return err
+				}
+				return chromedp.EvaluateAsDevTools(hoverAbsPosJS(frame, selector), &posJSON).Do(ctx)
+			})); err != nil {
 				return NewToolResult("", fmt.Errorf("browser_hover: %w", err))
 			}
 			if posJSON == "" {
 				return NewToolResult("", fmt.Errorf("browser_hover: element not found: %s", selector))
+			}
+			if strings.HasPrefix(posJSON, "error:") {
+				return NewToolResult("", fmt.Errorf("browser_hover: %s", posJSON))
 			}
 
 			var pos struct {
@@ -1488,20 +2119,193 @@ func newBrowserHoverTool(pool *browserPool, logger *slog.Logger) Tool {
 				return NewToolResult("", fmt.Errorf("browser_hover: parse position: %w", err))
 			}
 
-			// Step 3: move the real mouse cursor via CDP (triggers CSS :hover) and
-			// fire JS synthetic events in the same action sequence.
+			// Step 2: move real mouse cursor (triggers CSS :hover) and dispatch
+			// synthetic JS events. hoverEventsJS uses the iframe's own
+			// contentWindow.MouseEvent realm so iframe listeners fire correctly.
 			var ignored any
 			if err := pool.runDefault(
 				chromedp.ActionFunc(func(ctx context.Context) error {
 					return cdpinput.DispatchMouseEvent(cdpinput.MouseMoved, pos.X, pos.Y).Do(ctx)
 				}),
-				chromedp.EvaluateAsDevTools(jsScript, &ignored),
+				chromedp.EvaluateAsDevTools(hoverEventsJS(frame, selector), &ignored),
 			); err != nil {
 				return NewToolResult("", fmt.Errorf("browser_hover: %w", err))
 			}
 			return NewToolResult(fmt.Sprintf("Hovered over: %s (%.0f, %.0f)", selector, pos.X, pos.Y), nil)
 		},
 		WithPermissionLevel(PermLevelRead),
+		WithLogger(logger),
+	)
+}
+
+// ── browser_drag ──────────────────────────────────────────────────────────────
+
+func newBrowserDragTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"source": map[string]any{
+				"type":        "string",
+				"description": "CSS selector of the element to drag from.",
+			},
+			"target": map[string]any{
+				"type":        "string",
+				"description": "CSS selector of the element to drop onto.",
+			},
+			"steps": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"maximum":     100,
+				"description": "Number of intermediate dragover positions simulated between source and target (default 10). Higher values produce a smoother path that fires more dragover events — useful when an element only activates mid-drag.",
+			},
+		},
+		"required": []string{"source", "target"},
+	}
+	return NewTool("browser_drag",
+		"Drag an element from a source selector to a target selector using CDP drag events. "+
+			"Works with HTML5 drag-and-drop, sortable lists, kanban boards, and file drop zones.",
+		schema,
+		func(params map[string]any) ToolResult {
+			source, ok := getString(params, "source")
+			if !ok || source == "" {
+				return NewToolResult("", fmt.Errorf("browser_drag: 'source' is required"))
+			}
+			target, ok2 := getString(params, "target")
+			if !ok2 || target == "" {
+				return NewToolResult("", fmt.Errorf("browser_drag: 'target' is required"))
+			}
+			steps := max(1, min(100, getInt(params, "steps", 10)))
+
+			// Step 1: resolve the centre viewport coords of both elements.
+			type elemPos struct{ X, Y float64 }
+			var src, dst elemPos
+
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				getCenter := func(sel string) (float64, float64, error) {
+					script := fmt.Sprintf(
+						`(function(){var e=document.querySelector(%q);if(!e)return"";`+
+							`var r=e.getBoundingClientRect();`+
+							`return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2});})()`,
+						sel,
+					)
+					var out string
+					if err := chromedp.EvaluateAsDevTools(script, &out).Do(ctx); err != nil {
+						return 0, 0, err
+					}
+					if out == "" {
+						return 0, 0, fmt.Errorf("element not found: %s", sel)
+					}
+					var p elemPos
+					if err := json.Unmarshal([]byte(out), &p); err != nil {
+						return 0, 0, fmt.Errorf("parse rect for %s: %w", sel, err)
+					}
+					return p.X, p.Y, nil
+				}
+				var err error
+				src.X, src.Y, err = getCenter(source)
+				if err != nil {
+					return fmt.Errorf("source: %w", err)
+				}
+				dst.X, dst.Y, err = getCenter(target)
+				if err != nil {
+					return fmt.Errorf("target: %w", err)
+				}
+				return nil
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_drag: %w", err))
+			}
+
+			// Step 2: full CDP drag sequence.
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				// Enable drag interception so Chrome fires EventDragIntercepted
+				// (carrying the DataTransfer populated by the page's dragstart
+				// handler) instead of handling the drag natively.
+				if err := cdpinput.SetInterceptDrags(true).Do(ctx); err != nil {
+					return fmt.Errorf("enable drag interception: %w", err)
+				}
+				defer cdpinput.SetInterceptDrags(false).Do(ctx) //nolint:errcheck
+
+				ch := make(chan *cdpinput.EventDragIntercepted, 1)
+				chromedp.ListenTarget(ctx, func(ev any) {
+					if e, ok := ev.(*cdpinput.EventDragIntercepted); ok {
+						select {
+						case ch <- e:
+						default:
+						}
+					}
+				})
+
+				// Press at source to start the drag gesture.
+				if err := cdpinput.DispatchMouseEvent(cdpinput.MousePressed, src.X, src.Y).
+					WithButton(cdpinput.Left).
+					WithButtons(1).
+					WithClickCount(1).
+					Do(ctx); err != nil {
+					return fmt.Errorf("mousedown on source: %w", err)
+				}
+
+				// Nudge the mouse to trigger the browser's dragstart event.
+				if err := cdpinput.DispatchMouseEvent(cdpinput.MouseMoved, src.X+4, src.Y+4).
+					WithButton(cdpinput.Left).
+					WithButtons(1).
+					Do(ctx); err != nil {
+					return fmt.Errorf("trigger drag: %w", err)
+				}
+
+				// Collect drag data from the page's dragstart handler.
+				// Fall back to a minimal text/plain payload for pages that
+				// use drag visuals only (no dataTransfer.setData call).
+				var dragData *cdpinput.DragData
+				select {
+				case ev := <-ch:
+					dragData = ev.Data
+				case <-time.After(500 * time.Millisecond):
+					dragData = &cdpinput.DragData{
+						Items: []*cdpinput.DragDataItem{
+							{MimeType: "text/plain", Data: ""},
+						},
+					}
+				}
+
+				// Simulate a smooth drag path from source to target so that
+				// intermediate dragover handlers fire at each step.
+				for i := range steps {
+					t := float64(i+1) / float64(steps)
+					ix := src.X + (dst.X-src.X)*t
+					iy := src.Y + (dst.Y-src.Y)*t
+					if err := cdpinput.DispatchDragEvent(cdpinput.DragOver, ix, iy, dragData).Do(ctx); err != nil {
+						return fmt.Errorf("dragover step %d: %w", i+1, err)
+					}
+				}
+
+				// Enter and drop at the target.
+				if err := cdpinput.DispatchDragEvent(cdpinput.DragEnter, dst.X, dst.Y, dragData).Do(ctx); err != nil {
+					return fmt.Errorf("dragenter: %w", err)
+				}
+				if err := cdpinput.DispatchDragEvent(cdpinput.DragOver, dst.X, dst.Y, dragData).Do(ctx); err != nil {
+					return fmt.Errorf("dragover target: %w", err)
+				}
+				if err := cdpinput.DispatchDragEvent(cdpinput.Drop, dst.X, dst.Y, dragData).Do(ctx); err != nil {
+					return fmt.Errorf("drop: %w", err)
+				}
+
+				// Release the mouse button to complete the gesture.
+				return cdpinput.DispatchMouseEvent(cdpinput.MouseReleased, dst.X, dst.Y).
+					WithButton(cdpinput.Left).
+					WithButtons(0).
+					Do(ctx)
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_drag: %w", err))
+			}
+
+			return NewToolResult(
+				fmt.Sprintf("Dragged %q (%.0f,%.0f) → %q (%.0f,%.0f) via %d steps",
+					source, src.X, src.Y, target, dst.X, dst.Y, steps),
+				nil,
+			)
+		},
+		WithPermissionLevel(PermLevelWrite),
 		WithLogger(logger),
 	)
 }
@@ -1517,6 +2321,7 @@ func newBrowserScreenshotTool(pool *browserPool, logger *slog.Logger) Tool {
 				"type":        "string",
 				"description": "CSS selector to screenshot. Omit for a full-page screenshot (which captures beyond the visible viewport).",
 			},
+			"frame": frameSchemaProperty(),
 			"save_path": map[string]any{
 				"type":        "string",
 				"description": "Absolute path where the image will be saved. For security this must be inside the OS temp directory; paths elsewhere are rejected. Omit to write to a fresh temp file (recommended). The file extension should match `format` but is not enforced.",
@@ -1535,10 +2340,11 @@ func newBrowserScreenshotTool(pool *browserPool, logger *slog.Logger) Tool {
 		},
 	}
 	return NewTool("browser_screenshot",
-		"Take a screenshot of the active tab or a specific element. Output is always written under the OS temp directory. Supports PNG (default, lossless) and JPEG (with adjustable quality).",
+		"Take a screenshot of the active tab or a specific element. Output is always written under the OS temp directory. Supports PNG (default, lossless) and JPEG (with adjustable quality). Use `frame` to capture an element inside a same-origin iframe.",
 		schema,
 		func(params map[string]any) ToolResult {
 			selector := getStringDefault(params, "selector", "")
+			frame := getStringDefault(params, "frame", "")
 			rawSavePath := getStringDefault(params, "save_path", "")
 			format := strings.ToLower(getStringDefault(params, "format", "png"))
 			quality := getInt(params, "quality", 90)
@@ -1570,7 +2376,7 @@ func newBrowserScreenshotTool(pool *browserPool, logger *slog.Logger) Tool {
 			var buf []byte
 			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
 				var captErr error
-				buf, captErr = captureScreenshot(ctx, selector, format, int64(quality))
+				buf, captErr = captureScreenshot(ctx, frame, selector, format, int64(quality))
 				return captErr
 			})); err != nil {
 				return NewToolResult("", fmt.Errorf("browser_screenshot: %w", err))
@@ -1588,18 +2394,16 @@ func newBrowserScreenshotTool(pool *browserPool, logger *slog.Logger) Tool {
 }
 
 // captureScreenshot runs inside the pool's CDP action context and returns
-// the encoded image bytes. Two dimensions of behaviour:
+// the encoded image bytes. Three dimensions of behaviour:
 //
-//   - selector empty   → full-page capture (uses CDP's captureBeyondViewport
-//     so content below the fold is included without a viewport-resize dance).
-//   - selector present → element capture: scroll into view, read the element's
-//     getBoundingClientRect, capture with a clip rectangle of those dimensions.
+//   - selector empty → full-page capture (captureBeyondViewport).
+//   - selector set, frameSelector empty → element capture in top frame.
+//   - selector set, frameSelector set → element inside same-origin iframe;
+//     the clip rect is translated to outer-viewport coordinates by summing
+//     the iframe's bounding rect with the inner element's bounding rect.
 //
-// PNG is the default; JPEG is requested via WithFormat+WithQuality. The
-// previous implementation passed `quality` to chromedp.FullScreenshot which
-// ignores it for PNG output — this fixes the schema lying about a knob that
-// did nothing.
-func captureScreenshot(ctx context.Context, selector, format string, quality int64) ([]byte, error) {
+// PNG is the default; JPEG is requested via WithFormat+WithQuality.
+func captureScreenshot(ctx context.Context, frameSelector, selector, format string, quality int64) ([]byte, error) {
 	capFmt := page.CaptureScreenshotFormatPng
 	if format == "jpeg" {
 		capFmt = page.CaptureScreenshotFormatJpeg
@@ -1612,26 +2416,50 @@ func captureScreenshot(ctx context.Context, selector, format string, quality int
 	}
 
 	if selector != "" {
-		if err := chromedp.WaitReady(selector, chromedp.ByQuery).Do(ctx); err != nil {
+		opts, err := resolveFrame(ctx, frameSelector)
+		if err != nil {
+			return nil, err
+		}
+		if err := chromedp.WaitReady(selector, opts...).Do(ctx); err != nil {
 			return nil, fmt.Errorf("element not ready: %w", err)
 		}
-		if err := chromedp.ScrollIntoView(selector, chromedp.ByQuery).Do(ctx); err != nil {
+		if err := chromedp.ScrollIntoView(selector, opts...).Do(ctx); err != nil {
 			return nil, fmt.Errorf("scroll into view: %w", err)
 		}
-		// Inline the selector via %q so any embedded quotes in the user's
-		// input become Go-escaped JS string literals — same pattern as
-		// browser_hover. (CSS selectors come from the LLM and need to be
-		// safely embedded in JS.)
-		getRect := fmt.Sprintf(
-			`(function(){var e=document.querySelector(%q);if(!e)return"";var r=e.getBoundingClientRect();return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});})()`,
-			selector,
-		)
+
+		// Build the rect-query JS. When an iframe is involved, translate the
+		// element's iframe-local rect to outer-viewport coordinates by adding
+		// the iframe element's own getBoundingClientRect offset.
+		var getRect string
+		if frameSelector == "" {
+			getRect = fmt.Sprintf(
+				`(function(){var e=document.querySelector(%q);if(!e)return"";var r=e.getBoundingClientRect();return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});})()`,
+				selector,
+			)
+		} else {
+			getRect = fmt.Sprintf(
+				`(function(){`+
+					`var __frame=document.querySelector(%q);`+
+					`if(!__frame||!__frame.contentDocument)return"error: frame inaccessible";`+
+					`var fr=__frame.getBoundingClientRect();`+
+					`var el=__frame.contentDocument.querySelector(%q);`+
+					`if(!el)return"";`+
+					`var er=el.getBoundingClientRect();`+
+					`return JSON.stringify({x:fr.left+er.left,y:fr.top+er.top,width:er.width,height:er.height});`+
+					`})()`,
+				frameSelector, selector,
+			)
+		}
+
 		var rectJSON string
 		if err := chromedp.EvaluateAsDevTools(getRect, &rectJSON).Do(ctx); err != nil {
 			return nil, fmt.Errorf("get element bounds: %w", err)
 		}
 		if rectJSON == "" {
 			return nil, fmt.Errorf("element not found: %s", selector)
+		}
+		if strings.HasPrefix(rectJSON, "error:") {
+			return nil, fmt.Errorf("%s", rectJSON)
 		}
 		var rect struct {
 			X, Y, Width, Height float64
@@ -1651,6 +2479,114 @@ func captureScreenshot(ctx context.Context, selector, format string, quality int
 		})
 	}
 	return req.Do(ctx)
+}
+
+// ── browser_dialog ─────────────────────────────────────────────────────────────
+
+func newBrowserDialogTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"action": map[string]any{
+				"type":        "string",
+				"enum":        []string{"accept", "dismiss"},
+				"description": "Whether to accept (OK/Yes/Confirm) or dismiss (Cancel/No) the dialog.",
+			},
+			"text": map[string]any{
+				"type":        "string",
+				"description": "Text to type into a prompt dialog before accepting. Ignored for alert and confirm dialogs.",
+			},
+			"wait_ms": map[string]any{
+				"type":        "integer",
+				"minimum":     0,
+				"maximum":     25000,
+				"description": "Milliseconds to wait for a dialog to appear if none is currently open (default 5000). Pass 0 to only handle an already-open dialog.",
+			},
+		},
+		"required": []string{"action"},
+	}
+	return NewTool("browser_dialog",
+		"Accept or dismiss a JavaScript dialog (alert, confirm, prompt, or beforeunload). "+
+			"If a dialog is already open it is handled immediately; otherwise the tool waits up to wait_ms for one to appear. "+
+			"Returns the dialog type and message so the agent knows what the page was asking.",
+		schema,
+		func(params map[string]any) ToolResult {
+			action, ok := getString(params, "action")
+			if !ok || (action != "accept" && action != "dismiss") {
+				return NewToolResult("", fmt.Errorf("browser_dialog: 'action' must be 'accept' or 'dismiss'"))
+			}
+			promptText := getStringDefault(params, "text", "")
+			waitMs := max(0, min(25000, getInt(params, "wait_ms", 5000)))
+			accept := action == "accept"
+
+			var dialogType, dialogMsg string
+
+			err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				// Register the listener BEFORE any attempt to handle so a
+				// dialog that fires during this action window is not missed.
+				ch := make(chan *page.EventJavascriptDialogOpening, 1)
+				chromedp.ListenTarget(ctx, func(ev any) {
+					if e, ok := ev.(*page.EventJavascriptDialogOpening); ok {
+						select {
+						case ch <- e:
+						default:
+						}
+					}
+				})
+
+				// Try to handle a dialog that is already open. Chrome returns
+				// -32000 ("No dialog is showing") when nothing is pending.
+				req := page.HandleJavaScriptDialog(accept)
+				if promptText != "" {
+					req = req.WithPromptText(promptText)
+				}
+				if err := req.Do(ctx); err == nil {
+					dialogType = "unknown"
+					dialogMsg = "(dialog was already open when tool was called; type not available)"
+					return nil
+				}
+
+				if waitMs == 0 {
+					return fmt.Errorf("no dialog is currently open")
+				}
+
+				timer := time.NewTimer(time.Duration(waitMs) * time.Millisecond)
+				defer timer.Stop()
+				select {
+				case ev := <-ch:
+					dialogType = string(ev.Type)
+					dialogMsg = ev.Message
+					req2 := page.HandleJavaScriptDialog(accept)
+					if promptText != "" {
+						req2 = req2.WithPromptText(promptText)
+					}
+					return req2.Do(ctx)
+				case <-timer.C:
+					return fmt.Errorf("no dialog appeared within %dms", waitMs)
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}))
+
+			if err != nil {
+				return NewToolResult("", fmt.Errorf("browser_dialog: %w", err))
+			}
+
+			result := map[string]any{
+				"action":  action,
+				"type":    dialogType,
+				"message": dialogMsg,
+			}
+			if accept && promptText != "" {
+				result["prompt_input"] = promptText
+			}
+			b, _ := json.MarshalIndent(result, "", "  ")
+			return NewToolResult(string(b), nil)
+		},
+		WithPermissionLevel(PermLevelWrite),
+		WithLogger(logger),
+	)
 }
 
 // ── browser_get_text ──────────────────────────────────────────────────────────
@@ -1741,22 +2677,37 @@ func newBrowserEvalTool(pool *browserPool, logger *slog.Logger) Tool {
 				"description": "JavaScript to execute. Use 'return value' to return data. " +
 					"Example: \"return document.querySelectorAll('a').length\".",
 			},
+			"frame": map[string]any{
+				"type":        "string",
+				"description": "Optional CSS selector for an iframe element. When set, the script runs inside that iframe's JavaScript realm — `document` and `window` reference the iframe, and (for same-origin frames) the script can access the iframe's variables and DOM directly. Cross-origin iframes return a runtime error.",
+			},
+			"timeout_ms": map[string]any{
+				"type":        "integer",
+				"minimum":     100,
+				"maximum":     25000,
+				"description": "Maximum milliseconds Chrome allows the script to run before terminating it (default 5000). Protects against infinite loops blocking the browser session. Increase for genuinely long-running async work.",
+			},
 		},
 		"required": []string{"script"},
 	}
-	return NewTool("browser_eval", "Execute JavaScript in the active tab and return the result. Supports async/await and Promises.", schema,
+	return NewTool("browser_eval",
+		"Execute JavaScript in the active tab (or in an iframe via `frame`) and return the result. Supports async/await and Promises.",
+		schema,
 		func(params map[string]any) ToolResult {
 			script, ok := getString(params, "script")
 			if !ok || script == "" {
 				return NewToolResult("", fmt.Errorf("browser_eval: 'script' is required"))
 			}
-			// Wrap in async IIFE: handles bare return, expressions, and async/await equally.
-			expr := "(async function(){\n" + script + "\n})()"
+			frame := getStringDefault(params, "frame", "")
+			timeoutMs := max(100, min(25000, getInt(params, "timeout_ms", 5000)))
+			expr := buildEvalExpression(frame, script)
+
 			var raw json.RawMessage
 			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
 				res, exp, err := cdpruntime.Evaluate(expr).
 					WithAwaitPromise(true).
 					WithReturnByValue(true).
+					WithTimeout(cdpruntime.TimeDelta(timeoutMs)).
 					Do(ctx)
 				if err != nil {
 					return err
@@ -1780,6 +2731,131 @@ func newBrowserEvalTool(pool *browserPool, logger *slog.Logger) Tool {
 			return NewToolResult(string(raw), nil)
 		},
 		WithPermissionLevel(PermLevelBash),
+		WithLogger(logger),
+	)
+}
+
+// buildEvalExpression returns the JS expression that browser_eval submits to
+// Runtime.evaluate. The empty-frame case is the same single-line async IIFE
+// that wraps the user's script in the top-frame realm. The non-empty case
+// adds an outer wrapper that:
+//
+//  1. Locates the iframe element by CSS selector (and verifies it's an
+//     <iframe>/<frame> tag at runtime, not whatever else the selector matched).
+//  2. Reads `contentWindow` / `contentDocument` inside a try/catch so a
+//     cross-origin SecurityError surfaces as a JS Error with a useful
+//     message rather than crashing the evaluation.
+//  3. Constructs a Function in the iframe's JS realm via
+//     `new contentWindow.Function('document', 'window', body)`. Inside that
+//     function, `document` and `window` (passed as arguments) reference the
+//     iframe's globals; lexical references to `fetch`, `setTimeout`, etc.
+//     resolve to the iframe's realm. This is the standard same-origin
+//     same-page-iframe technique used by Playwright/Puppeteer.
+//
+// Cross-origin iframes still error here at runtime — the cross-origin
+// SecurityError on contentDocument access is caught and rethrown with a
+// clearer message. Cross-origin iframe support requires attaching to a
+// separate CDP target and is a separate feature.
+func buildEvalExpression(frameSelector, script string) string {
+	if frameSelector == "" {
+		return "(async function(){\n" + script + "\n})()"
+	}
+	innerBody := fmt.Sprintf("return (async function(){\n%s\n})()", script)
+	return fmt.Sprintf(`(async function(){
+	var __f = document.querySelector(%q);
+	if (!__f) throw new Error("frame not found: " + %q);
+	var tag = __f.tagName;
+	if (tag !== "IFRAME" && tag !== "FRAME") {
+		throw new Error("frame selector " + %q + " matched <" + tag.toLowerCase() + ">, not an iframe/frame");
+	}
+	var __win, __doc;
+	try {
+		__win = __f.contentWindow;
+		__doc = __f.contentDocument;
+	} catch (e) {
+		throw new Error("frame is cross-origin (" + e.message + "); only same-origin iframes are supported");
+	}
+	if (!__win || !__doc) {
+		throw new Error("frame has no accessible document (cross-origin or detached): " + %q);
+	}
+	var __fn = new __win.Function('document', 'window', %q);
+	return await __fn.call(__win, __doc, __win);
+})()`,
+		frameSelector, frameSelector, frameSelector, frameSelector, innerBody,
+	)
+}
+
+// ── browser_console_log ───────────────────────────────────────────────────────
+
+func newBrowserConsoleLogTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"level": map[string]any{
+				"type":        "string",
+				"enum":        []string{"all", "log", "info", "warn", "error", "debug"},
+				"description": "Filter by log level. Default: all. Note: uncaught JS exceptions are surfaced as level=\"error\".",
+			},
+			"filter": map[string]any{
+				"type":        "string",
+				"description": "Optional case-insensitive substring filter on the message text.",
+			},
+			"limit": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"description": "Maximum number of entries to return — most recent ones win when there are more matches than the limit. Default: 100.",
+			},
+			"clear": map[string]any{
+				"type":        "boolean",
+				"description": "Clear the buffer after reading (default false). Useful between phases of a test to consume only the most recent activity.",
+			},
+		},
+	}
+	return NewTool("browser_console_log",
+		"Return console.log/info/warn/error/debug messages and uncaught exceptions captured from the active tab. Messages are buffered as they happen across the session (up to 500 entries, oldest dropped first).",
+		schema,
+		func(params map[string]any) ToolResult {
+			levelParam := getStringDefault(params, "level", "all")
+			filterParam := strings.ToLower(getStringDefault(params, "filter", ""))
+			limitParam := getInt(params, "limit", 100)
+			clearParam := getBool(params, "clear", false)
+
+			validLevels := map[string]bool{
+				"all": true, "log": true, "info": true, "warn": true,
+				"error": true, "debug": true,
+			}
+			if !validLevels[levelParam] {
+				return NewToolResult("", fmt.Errorf("browser_console_log: level must be one of all/log/info/warn/error/debug, got %q", levelParam))
+			}
+			if limitParam < 1 {
+				return NewToolResult("", fmt.Errorf("browser_console_log: limit must be ≥1, got %d", limitParam))
+			}
+
+			// Make sure the pool is attached so the console listener is wired up.
+			// Without this first call there's no active tab and nothing has been
+			// captured yet.
+			pool.mu.Lock()
+			if err := pool.ensureConnected(); err != nil {
+				pool.mu.Unlock()
+				return NewToolResult("", fmt.Errorf("browser_console_log: %w", err))
+			}
+			pool.mu.Unlock()
+
+			entries := pool.console.read(consoleQuery{
+				level:     levelParam,
+				substring: filterParam,
+				clear:     clearParam,
+			})
+			// Most-recent-N truncation. Easier on the LLM than oldest-N when a
+			// chatty page produces hundreds of messages.
+			if len(entries) > limitParam {
+				entries = entries[len(entries)-limitParam:]
+			}
+			b, _ := json.MarshalIndent(entries, "", "  ")
+			return NewToolResult(string(b), nil)
+		},
+		WithPermissionLevel(PermLevelRead),
 		WithLogger(logger),
 	)
 }
@@ -1824,7 +2900,7 @@ func newBrowserGetCookiesTool(pool *browserPool, logger *slog.Logger) Tool {
 				Value    string `json:"value,omitempty"`
 				Expires  string `json:"expires,omitempty"`
 				Secure   bool   `json:"secure"`
-				HttpOnly bool   `json:"http_only"`
+				HTTPOnly bool   `json:"http_only"`
 				SameSite string `json:"same_site,omitempty"`
 			}
 			var out []cookieSummary
@@ -1839,7 +2915,7 @@ func newBrowserGetCookiesTool(pool *browserPool, logger *slog.Logger) Tool {
 					Domain:   c.Domain,
 					Path:     c.Path,
 					Secure:   c.Secure,
-					HttpOnly: c.HTTPOnly,
+					HTTPOnly: c.HTTPOnly,
 					SameSite: string(c.SameSite),
 				}
 				if includeValues {
@@ -1943,6 +3019,169 @@ func newBrowserSetCookiesTool(pool *browserPool, logger *slog.Logger) Tool {
 	)
 }
 
+// ── browser_storage ───────────────────────────────────────────────────────────
+
+func newBrowserStorageTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"action": map[string]any{
+				"type": "string",
+				"enum": []string{"get", "set", "remove", "clear", "get_all"},
+				"description": "Storage operation: " +
+					"get — read a value (returns null when key is absent); " +
+					"set — write key=value; " +
+					"remove — delete a single key; " +
+					"clear — delete every key in this storage; " +
+					"get_all — return all key-value pairs as a JSON object.",
+			},
+			"storage": map[string]any{
+				"type":        "string",
+				"enum":        []string{"local", "session"},
+				"description": "Which Web Storage to target: 'local' (localStorage, persists across sessions, default) or 'session' (sessionStorage, tab-lifetime only).",
+			},
+			"key": map[string]any{
+				"type":        "string",
+				"description": "Storage key. Required for get, set, and remove.",
+			},
+			"value": map[string]any{
+				"type":        "string",
+				"description": "Value to write. Required for set. May be an empty string.",
+			},
+		},
+		"required": []string{"action"},
+	}
+	return NewTool("browser_storage",
+		"Read or write Web Storage (localStorage or sessionStorage) on the active tab's origin. "+
+			"Useful for inspecting auth tokens, feature flags, and other SPA state without navigating.",
+		schema,
+		func(params map[string]any) ToolResult {
+			action, ok := getString(params, "action")
+			if !ok {
+				return NewToolResult("", fmt.Errorf("browser_storage: 'action' is required"))
+			}
+			storageType := getStringDefault(params, "storage", "local")
+			key := getStringDefault(params, "key", "")
+			value := getStringDefault(params, "value", "")
+
+			storeJS := "window.localStorage"
+			if storageType == "session" {
+				storeJS = "window.sessionStorage"
+			}
+
+			switch action {
+			case "get", "set", "remove":
+				if key == "" {
+					return NewToolResult("", fmt.Errorf("browser_storage: 'key' is required for action %q", action))
+				}
+			case "clear", "get_all":
+				// no key required
+			default:
+				return NewToolResult("", fmt.Errorf("browser_storage: unknown action %q", action))
+			}
+
+			var out string
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				var expr string
+				switch action {
+				case "get":
+					// JSON.stringify so null (missing key) is distinguishable from
+					// an empty-string value: missing → "null", "" → `""`
+					expr = fmt.Sprintf(`JSON.stringify(%s.getItem(%q))`, storeJS, key)
+				case "set":
+					expr = fmt.Sprintf(`(function(){ %s.setItem(%q, %q); return "ok"; })()`, storeJS, key, value)
+				case "remove":
+					expr = fmt.Sprintf(`(function(){ %s.removeItem(%q); return "ok"; })()`, storeJS, key)
+				case "clear":
+					expr = fmt.Sprintf(`(function(){ %s.clear(); return "ok"; })()`, storeJS)
+				case "get_all":
+					expr = fmt.Sprintf(
+						`JSON.stringify(Object.fromEntries(Object.keys(%s).map(k=>[k,%s.getItem(k)])))`,
+						storeJS, storeJS,
+					)
+				}
+				return chromedp.EvaluateAsDevTools(expr, &out).Do(ctx)
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_storage: %w", err))
+			}
+
+			switch action {
+			case "get":
+				var val *string
+				if err := json.Unmarshal([]byte(out), &val); err != nil {
+					return NewToolResult("", fmt.Errorf("browser_storage: parse result: %w", err))
+				}
+				storeName := storageType + "Storage"
+				if val == nil {
+					return NewToolResult(fmt.Sprintf("%s[%q] = null (key not set)", storeName, key), nil)
+				}
+				return NewToolResult(fmt.Sprintf("%s[%q] = %q", storeName, key, *val), nil)
+			case "get_all":
+				return NewToolResult(out, nil)
+			default:
+				return NewToolResult(fmt.Sprintf("%sStorage: %s %q ok", storageType, action, key), nil)
+			}
+		},
+		WithPermissionLevel(PermLevelBash),
+		WithLogger(logger),
+	)
+}
+
+// ── browser_delete_cookies ─────────────────────────────────────────────────────
+
+func newBrowserDeleteCookiesTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":        "string",
+				"description": "Name of the cookie to delete.",
+			},
+			"domain": map[string]any{
+				"type":        "string",
+				"description": "Domain to scope deletion (e.g. .example.com). Must be a domain-suffix of the active tab's host. Omit to target the current page's URL (most precise match).",
+			},
+		},
+		"required": []string{"name"},
+	}
+	return NewTool("browser_delete_cookies",
+		"Delete a browser cookie by name on the active tab's origin. "+
+			"Use browser_get_cookies first to discover which cookies exist and their domains.",
+		schema,
+		func(params map[string]any) ToolResult {
+			name, ok := getString(params, "name")
+			if !ok || name == "" {
+				return NewToolResult("", fmt.Errorf("browser_delete_cookies: 'name' is required"))
+			}
+			domain := getStringDefault(params, "domain", "")
+
+			var deletedOn string
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				var currentURL string
+				if err := chromedp.Location(&currentURL).Do(ctx); err != nil {
+					return fmt.Errorf("read current url: %w", err)
+				}
+				if err := validateCookieDomain(domain, currentURL); err != nil {
+					return err
+				}
+				if domain != "" {
+					deletedOn = domain
+					return network.DeleteCookies(name).WithDomain(domain).Do(ctx)
+				}
+				deletedOn = currentURL
+				return network.DeleteCookies(name).WithURL(currentURL).Do(ctx)
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_delete_cookies: %w", err))
+			}
+			return NewToolResult(fmt.Sprintf("Deleted cookie %q (scope: %s)", name, deletedOn), nil)
+		},
+		WithPermissionLevel(PermLevelBash),
+		WithLogger(logger),
+	)
+}
+
 // ── browser_wait ──────────────────────────────────────────────────────────────
 
 func newBrowserWaitTool(pool *browserPool, logger *slog.Logger) Tool {
@@ -1952,31 +3191,94 @@ func newBrowserWaitTool(pool *browserPool, logger *slog.Logger) Tool {
 		"properties": map[string]any{
 			"selector": map[string]any{
 				"type":        "string",
-				"description": "CSS selector to wait for.",
+				"description": "CSS selector to wait for. Required for all states except network_idle.",
 			},
 			"state": map[string]any{
-				"type":        "string",
-				"enum":        []string{"visible", "ready", "not_visible"},
-				"description": "Condition: visible (default), ready (present in DOM), not_visible.",
+				"type": "string",
+				"enum": []string{"visible", "ready", "not_visible", "network_idle"},
+				"description": "Condition to wait for: " +
+					"visible — element exists and is visible (default); " +
+					"ready — element is present in DOM (may be hidden); " +
+					"not_visible — element is gone or hidden; " +
+					"network_idle — no HTTP requests in flight for quiet_ms ms (no selector needed, useful after SPA navigation or form submission).",
 			},
 			"timeout_ms": map[string]any{
 				"type":        "integer",
-				"description": "Maximum wait in milliseconds (default 10000).",
+				"minimum":     100,
+				"maximum":     120000,
+				"description": "Maximum wait in milliseconds (100–120000, default 10000).",
+			},
+			"quiet_ms": map[string]any{
+				"type":        "integer",
+				"minimum":     100,
+				"maximum":     5000,
+				"description": "Used with network_idle: how many consecutive milliseconds with zero in-flight requests counts as idle (default 500).",
 			},
 			"frame": frameSchemaProperty(),
 		},
-		"required": []string{"selector"},
 	}
-	return NewTool("browser_wait", "Wait for a DOM element to reach a given state.", schema,
+	return NewTool("browser_wait",
+		"Wait for a DOM element to reach a given visibility state, or for all network activity to go quiet. "+
+			"Use network_idle after triggering SPA navigation or form submissions that do not change the URL.",
+		schema,
 		func(params map[string]any) ToolResult {
-			selector, ok := getString(params, "selector")
-			if !ok || selector == "" {
-				return NewToolResult("", fmt.Errorf("browser_wait: 'selector' is required"))
-			}
+			selector := getStringDefault(params, "selector", "")
 			state := getStringDefault(params, "state", "visible")
 			frame := getStringDefault(params, "frame", "")
-			timeoutMs := getInt(params, "timeout_ms", 10000)
+			timeoutMs := max(100, min(120000, getInt(params, "timeout_ms", 10000)))
+			quietMs := max(100, min(5000, getInt(params, "quiet_ms", 500)))
 			timeout := time.Duration(timeoutMs) * time.Millisecond
+
+			if state == "network_idle" {
+				quietPeriod := time.Duration(quietMs) * time.Millisecond
+				if err := pool.run(timeout, chromedp.ActionFunc(func(ctx context.Context) error {
+					if err := network.Enable().Do(ctx); err != nil {
+						return fmt.Errorf("enable network events: %w", err)
+					}
+
+					var mu sync.Mutex
+					inFlight := 0
+					lastActivity := time.Now()
+
+					chromedp.ListenTarget(ctx, func(ev any) {
+						mu.Lock()
+						defer mu.Unlock()
+						switch ev.(type) {
+						case *network.EventRequestWillBeSent:
+							inFlight++
+							lastActivity = time.Now()
+						case *network.EventLoadingFinished, *network.EventLoadingFailed:
+							if inFlight > 0 {
+								inFlight--
+							}
+							lastActivity = time.Now()
+						}
+					})
+
+					ticker := time.NewTicker(50 * time.Millisecond)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ticker.C:
+							mu.Lock()
+							idle := inFlight == 0 && time.Since(lastActivity) >= quietPeriod
+							mu.Unlock()
+							if idle {
+								return nil
+							}
+						case <-ctx.Done():
+							return ctx.Err()
+						}
+					}
+				})); err != nil {
+					return NewToolResult("", fmt.Errorf("browser_wait: network_idle: %w", err))
+				}
+				return NewToolResult(fmt.Sprintf("Network idle (quiet for %dms)", quietMs), nil)
+			}
+
+			if selector == "" {
+				return NewToolResult("", fmt.Errorf("browser_wait: 'selector' is required for state %q", state))
+			}
 
 			if err := pool.run(timeout, chromedp.ActionFunc(func(ctx context.Context) error {
 				opts, err := resolveFrame(ctx, frame)
@@ -2014,15 +3316,15 @@ func newBrowserScrollTool(pool *browserPool, logger *slog.Logger) Tool {
 			},
 			"x": map[string]any{
 				"type":        "integer",
-				"description": "Horizontal scroll offset in pixels (window scroll).",
+				"description": "Horizontal scroll offset in pixels. Applied to the top window, or to the iframe window when 'frame' is set.",
 			},
 			"y": map[string]any{
 				"type":        "integer",
-				"description": "Vertical scroll offset in pixels (window scroll).",
+				"description": "Vertical scroll offset in pixels. Applied to the top window, or to the iframe window when 'frame' is set.",
 			},
 			"to_bottom": map[string]any{
 				"type":        "boolean",
-				"description": "Scroll the window to the very bottom of the page (default false).",
+				"description": "Scroll to the very bottom of the page (or frame, if 'frame' is set). Default false.",
 			},
 			"frame": frameSchemaProperty(),
 		},
@@ -2047,23 +3349,113 @@ func newBrowserScrollTool(pool *browserPool, logger *slog.Logger) Tool {
 				}
 				return NewToolResult(fmt.Sprintf("Scrolled %s into view", selector), nil)
 			}
-			// Window-scroll path (no selector) is top-frame only — frame is
-			// silently ignored when no selector is given.
 
+			// Window-scroll path: use doc.defaultView so that 'frame' is respected.
 			var script string
-			if toBottom {
-				script = "window.scrollTo(0, document.body.scrollHeight)"
+			if frame != "" {
+				if toBottom {
+					script = fmt.Sprintf(`(function(){%s doc.defaultView.scrollTo(0, doc.body.scrollHeight)})()`, selectDocScopeJS(frame))
+				} else {
+					script = fmt.Sprintf(`(function(){%s doc.defaultView.scrollBy(%d, %d)})()`, selectDocScopeJS(frame), x, y)
+				}
 			} else {
-				script = fmt.Sprintf("window.scrollBy(%d, %d)", x, y)
+				if toBottom {
+					script = "window.scrollTo(0, document.body.scrollHeight)"
+				} else {
+					script = fmt.Sprintf("window.scrollBy(%d, %d)", x, y)
+				}
 			}
 			var ignored any
 			if err := pool.runDefault(chromedp.EvaluateAsDevTools(script, &ignored)); err != nil {
 				return NewToolResult("", fmt.Errorf("browser_scroll: %w", err))
 			}
 			if toBottom {
+				if frame != "" {
+					return NewToolResult(fmt.Sprintf("Scrolled frame %q to bottom", frame), nil)
+				}
 				return NewToolResult("Scrolled to bottom", nil)
 			}
+			if frame != "" {
+				return NewToolResult(fmt.Sprintf("Scrolled frame %q by (%d, %d)", frame, x, y), nil)
+			}
 			return NewToolResult(fmt.Sprintf("Scrolled window by (%d, %d)", x, y), nil)
+		},
+		WithPermissionLevel(PermLevelRead),
+		WithLogger(logger),
+	)
+}
+
+// ── browser_set_viewport ──────────────────────────────────────────────────────
+
+func newBrowserSetViewportTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"width": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"description": "Viewport width in CSS pixels. Required unless reset is true.",
+			},
+			"height": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"description": "Viewport height in CSS pixels. Required unless reset is true.",
+			},
+			"device_scale_factor": map[string]any{
+				"type":        "number",
+				"minimum":     0.1,
+				"maximum":     10,
+				"description": "Device pixel ratio (default 1.0). Use 2.0 to simulate a Retina / HiDPI display.",
+			},
+			"mobile": map[string]any{
+				"type":        "boolean",
+				"description": "Emulate a mobile device: enables touch events, mobile viewport meta handling, and device-like scroll behaviour (default false).",
+			},
+			"reset": map[string]any{
+				"type":        "boolean",
+				"description": "Clear any active viewport override and restore the browser's natural window size (default false). When true, all other parameters are ignored.",
+			},
+		},
+	}
+	return NewTool("browser_set_viewport",
+		"Override the browser viewport size and optionally enable mobile device emulation. "+
+			"Useful for testing responsive layouts or simulating mobile screens. "+
+			"Call with reset=true to restore the browser's natural dimensions.",
+		schema,
+		func(params map[string]any) ToolResult {
+			reset := getBool(params, "reset", false)
+
+			if reset {
+				if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+					return emulation.ClearDeviceMetricsOverride().Do(ctx)
+				})); err != nil {
+					return NewToolResult("", fmt.Errorf("browser_set_viewport: reset: %w", err))
+				}
+				return NewToolResult("Viewport override cleared (restored browser default)", nil)
+			}
+
+			width := getInt(params, "width", 0)
+			height := getInt(params, "height", 0)
+			if width <= 0 || height <= 0 {
+				return NewToolResult("", fmt.Errorf("browser_set_viewport: 'width' and 'height' are required (both must be > 0) unless reset is true"))
+			}
+
+			dsf := getFloat(params, "device_scale_factor", 1.0)
+			if dsf < 0.1 || dsf > 10 {
+				dsf = 1.0
+			}
+			mobile := getBool(params, "mobile", false)
+
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				return emulation.SetDeviceMetricsOverride(int64(width), int64(height), dsf, mobile).Do(ctx)
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_set_viewport: %w", err))
+			}
+			return NewToolResult(
+				fmt.Sprintf("Viewport set to %dx%d (scale=%.1f, mobile=%v)", width, height, dsf, mobile),
+				nil,
+			)
 		},
 		WithPermissionLevel(PermLevelRead),
 		WithLogger(logger),
@@ -2235,6 +3627,9 @@ func newBrowserNewTabTool(pool *browserPool, logger *slog.Logger) Tool {
 			pool.tabCncl = newTabCncl
 			pool.mu.Unlock()
 
+			pool.attachConsoleCapture(newTabCtx)
+			pool.attachNetworkCapture(newTabCtx)
+
 			if oldTabCncl != nil {
 				oldTabCncl()
 			}
@@ -2259,44 +3654,33 @@ func newBrowserCloseTabTool(pool *browserPool, logger *slog.Logger) Tool {
 			},
 		},
 	}
-	return NewTool("browser_close_tab", "Close a browser tab by ID, or close the current active tab.", schema,
+	return NewTool("browser_close_tab",
+		"Close a browser tab by ID, or close the current active tab. When closing a non-active tab the pool is untouched; when closing the active tab the pool swaps to another remaining page (or relaunches if none remain).",
+		schema,
 		func(params map[string]any) ToolResult {
 			tabID := getStringDefault(params, "tab_id", "")
 
-			// Resolve target ID and close in a single action sequence to avoid
-			// a TOCTOU race where the active tab changes between two separate calls.
+			// Resolve which target to close. Default = currently active tab.
 			var resolvedID cdptarget.ID
 			if tabID != "" {
 				resolvedID = cdptarget.ID(tabID)
-			}
-			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
-				if resolvedID == "" {
-					// Discover the attached page target.
-					infos, err := chromedp.Targets(ctx)
-					if err != nil {
-						return err
-					}
-					for _, t := range infos {
-						if t.Attached && t.Type == "page" {
-							resolvedID = t.TargetID
-							break
-						}
-					}
-					if resolvedID == "" {
-						return fmt.Errorf("no attached page target found")
-					}
+			} else {
+				pool.mu.Lock()
+				if err := pool.ensureConnected(); err != nil {
+					pool.mu.Unlock()
+					return NewToolResult("", fmt.Errorf("browser_close_tab: %w", err))
 				}
-				return cdptarget.CloseTarget(resolvedID).Do(ctx)
-			})); err != nil {
+				resolvedID = pool.activeTargetID()
+				pool.mu.Unlock()
+				if resolvedID == "" {
+					return NewToolResult("", fmt.Errorf("browser_close_tab: no active tab to close (pool not yet attached)"))
+				}
+			}
+
+			if err := pool.closeTab(resolvedID); err != nil {
 				return NewToolResult("", fmt.Errorf("browser_close_tab: %w", err))
 			}
-
-			// Reset pool so the next call reconnects to a live tab.
-			pool.mu.Lock()
-			pool.close()
-			pool.mu.Unlock()
-
-			return NewToolResult(fmt.Sprintf("Closed tab %s", tabID), nil)
+			return NewToolResult(fmt.Sprintf("Closed tab %s", resolvedID), nil)
 		},
 		WithPermissionLevel(PermLevelRead),
 		WithLogger(logger),
@@ -2411,6 +3795,308 @@ func newBrowserReloadTool(pool *browserPool, logger *slog.Logger) Tool {
 				return NewToolResult("", fmt.Errorf("browser_reload: %w", err))
 			}
 			return NewToolResult(fmt.Sprintf("Reloaded: %s\nTitle: %s", finalURL, title), nil)
+		},
+		WithPermissionLevel(PermLevelRead),
+		WithLogger(logger),
+	)
+}
+
+// ── browser_network ───────────────────────────────────────────────────────────
+
+func newBrowserNetworkTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"action": map[string]any{
+				"type":        "string",
+				"enum":        []string{"get", "clear"},
+				"description": "get — return captured entries (default); clear — empty the buffer and return what was in it.",
+			},
+			"url_filter": map[string]any{
+				"type":        "string",
+				"description": "Case-insensitive substring filter on the request URL.",
+			},
+			"method": map[string]any{
+				"type":        "string",
+				"enum":        []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
+				"description": "Return only requests with this HTTP method.",
+			},
+			"status_min": map[string]any{
+				"type":        "integer",
+				"minimum":     100,
+				"maximum":     599,
+				"description": "Return only responses with status >= this value.",
+			},
+			"status_max": map[string]any{
+				"type":        "integer",
+				"minimum":     100,
+				"maximum":     599,
+				"description": "Return only responses with status <= this value.",
+			},
+			"limit": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"maximum":     200,
+				"description": "Maximum number of entries to return, newest first (default 50).",
+			},
+			"include_pending": map[string]any{
+				"type":        "boolean",
+				"description": "Also return in-flight requests that have not yet received a response (default false).",
+			},
+		},
+	}
+	return NewTool("browser_network",
+		"Return captured HTTP request/response pairs for the current tab. "+
+			"The buffer is populated automatically as the page makes XHR, fetch, and navigation requests. "+
+			"Filter by URL substring, HTTP method, or status code range. "+
+			"Use action=clear to reset the buffer after inspecting.",
+		schema,
+		func(params map[string]any) ToolResult {
+			action := getStringDefault(params, "action", "get")
+			if action != "get" && action != "clear" {
+				return NewToolResult("", fmt.Errorf("browser_network: action must be 'get' or 'clear'"))
+			}
+			limit := max(1, min(200, getInt(params, "limit", 50)))
+			q := networkQuery{
+				urlFilter:      getStringDefault(params, "url_filter", ""),
+				method:         getStringDefault(params, "method", ""),
+				statusMin:      getInt(params, "status_min", 0),
+				statusMax:      getInt(params, "status_max", 0),
+				limit:          limit,
+				includePending: getBool(params, "include_pending", false),
+				clear:          action == "clear",
+			}
+			entries := pool.networkBuf.read(q)
+			if len(entries) == 0 {
+				return NewToolResult("[]", nil)
+			}
+			out, err := json.MarshalIndent(entries, "", "  ")
+			if err != nil {
+				return NewToolResult("", fmt.Errorf("browser_network: marshal: %w", err))
+			}
+			return NewToolResult(string(out), nil)
+		},
+		WithPermissionLevel(PermLevelRead),
+		WithLogger(logger),
+	)
+}
+
+// ── browser_accessibility ─────────────────────────────────────────────────────
+
+// simpleAXNode is the JSON-serialisable output node for browser_accessibility.
+type simpleAXNode struct {
+	Role        string            `json:"role,omitempty"`
+	Name        string            `json:"name,omitempty"`
+	Value       string            `json:"value,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Properties  map[string]string `json:"properties,omitempty"`
+	Children    []*simpleAXNode   `json:"children,omitempty"`
+}
+
+// axValueStr extracts the string representation from a CDP AXValue.
+// The underlying Value field is jsontext.Value (a []byte alias); we try to
+// unmarshal it as a JSON string first, then fall back to the raw bytes.
+func axValueStr(v *cdpaccessibility.Value) string {
+	if v == nil || len(v.Value) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal([]byte(v.Value), &s); err == nil {
+		return s
+	}
+	raw := strings.TrimSpace(string(v.Value))
+	if raw == "null" {
+		return ""
+	}
+	return raw
+}
+
+// axInterestingProps lists the AX property names worth surfacing in output.
+var axInterestingProps = map[cdpaccessibility.PropertyName]bool{
+	cdpaccessibility.PropertyNameDisabled:        true,
+	cdpaccessibility.PropertyNameFocused:         true,
+	cdpaccessibility.PropertyNameChecked:         true,
+	cdpaccessibility.PropertyNameExpanded:        true,
+	cdpaccessibility.PropertyNameSelected:        true,
+	cdpaccessibility.PropertyNameRequired:        true,
+	cdpaccessibility.PropertyNameInvalid:         true,
+	cdpaccessibility.PropertyNameLevel:           true,
+	cdpaccessibility.PropertyNameMultiselectable: true,
+	cdpaccessibility.PropertyNameHasPopup:        true,
+}
+
+// isUninterestingAXRole returns true for structural/anonymous roles that add
+// noise without semantic content.
+func isUninterestingAXRole(role, name string) bool {
+	if name != "" {
+		return false
+	}
+	switch role {
+	case "none", "presentation", "generic", "InlineTextBox", "":
+		return true
+	}
+	return false
+}
+
+// buildAXTree converts the flat CDP node list into a nested simpleAXNode tree.
+func buildAXTree(nodes []*cdpaccessibility.Node, rootSelector string, interestingOnly bool, maxDepth int) []*simpleAXNode {
+	byID := make(map[cdpaccessibility.NodeID]*cdpaccessibility.Node, len(nodes))
+	for _, n := range nodes {
+		byID[n.NodeID] = n
+	}
+
+	var rootIDs []cdpaccessibility.NodeID
+	if rootSelector != "" {
+		// Partial tree: roots are nodes whose parent is absent from the set.
+		for _, n := range nodes {
+			if _, parentPresent := byID[n.ParentID]; !parentPresent {
+				rootIDs = append(rootIDs, n.NodeID)
+			}
+		}
+	} else {
+		for _, n := range nodes {
+			if n.ParentID == "" {
+				rootIDs = append(rootIDs, n.NodeID)
+			}
+		}
+	}
+
+	var result []*simpleAXNode
+	for _, id := range rootIDs {
+		if n := buildAXNode(byID, id, interestingOnly, 0, maxDepth); n != nil {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+func buildAXNode(byID map[cdpaccessibility.NodeID]*cdpaccessibility.Node, id cdpaccessibility.NodeID, interestingOnly bool, depth, maxDepth int) *simpleAXNode {
+	if depth > maxDepth {
+		return nil
+	}
+	n, ok := byID[id]
+	if !ok || n.Ignored {
+		return nil
+	}
+
+	role := axValueStr(n.Role)
+	name := axValueStr(n.Name)
+
+	// For uninteresting nodes, skip this node but still recurse into children
+	// so that meaningful descendants are not lost. Flatten single-child wrappers.
+	if interestingOnly && isUninterestingAXRole(role, name) {
+		var children []*simpleAXNode
+		for _, childID := range n.ChildIDs {
+			if c := buildAXNode(byID, childID, interestingOnly, depth, maxDepth); c != nil {
+				children = append(children, c)
+			}
+		}
+		if len(children) == 1 {
+			return children[0]
+		}
+		if len(children) > 1 {
+			return &simpleAXNode{Children: children}
+		}
+		return nil
+	}
+
+	out := &simpleAXNode{
+		Role:        role,
+		Name:        name,
+		Value:       axValueStr(n.Value),
+		Description: axValueStr(n.Description),
+	}
+	for _, p := range n.Properties {
+		if !axInterestingProps[p.Name] {
+			continue
+		}
+		val := axValueStr(p.Value)
+		if val == "" || val == "false" || val == "null" {
+			continue
+		}
+		if out.Properties == nil {
+			out.Properties = make(map[string]string)
+		}
+		out.Properties[string(p.Name)] = val
+	}
+	for _, childID := range n.ChildIDs {
+		if c := buildAXNode(byID, childID, interestingOnly, depth+1, maxDepth); c != nil {
+			out.Children = append(out.Children, c)
+		}
+	}
+	return out
+}
+
+func newBrowserAccessibilityTool(pool *browserPool, logger *slog.Logger) Tool {
+	schema := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]any{
+			"selector": map[string]any{
+				"type":        "string",
+				"description": "CSS selector to scope the tree to one element and its subtree. Omit for the full page tree.",
+			},
+			"max_depth": map[string]any{
+				"type":        "integer",
+				"minimum":     1,
+				"maximum":     50,
+				"description": "Maximum tree depth to return (1–50, default 15).",
+			},
+			"interesting_only": map[string]any{
+				"type":        "boolean",
+				"description": "Skip structural/anonymous nodes (role=none/generic/presentation/InlineTextBox with no name). Meaningful descendants are still included (default true).",
+			},
+		},
+	}
+	return NewTool("browser_accessibility",
+		"Return the ARIA accessibility tree of the current page or a subtree rooted at 'selector'. "+
+			"Useful for discovering form labels, button names, widget states, and ARIA roles without parsing raw HTML. "+
+			"Results are a nested JSON tree of nodes with role, name, value, description, and key properties (disabled, checked, expanded, etc.).",
+		schema,
+		func(params map[string]any) ToolResult {
+			selector := getStringDefault(params, "selector", "")
+			maxDepth := max(1, min(50, getInt(params, "max_depth", 15)))
+			interestingOnly := getBool(params, "interesting_only", true)
+
+			var nodes []*cdpaccessibility.Node
+			if err := pool.runDefault(chromedp.ActionFunc(func(ctx context.Context) error {
+				if err := cdpaccessibility.Enable().Do(ctx); err != nil {
+					return fmt.Errorf("enable accessibility: %w", err)
+				}
+				if selector != "" {
+					var domNodes []*cdp.Node
+					if err := chromedp.Nodes(selector, &domNodes, chromedp.ByQuery).Do(ctx); err != nil {
+						return fmt.Errorf("selector %q: %w", selector, err)
+					}
+					if len(domNodes) == 0 {
+						return fmt.Errorf("selector %q: element not found", selector)
+					}
+					var err error
+					nodes, err = cdpaccessibility.GetPartialAXTree().
+						WithBackendNodeID(domNodes[0].BackendNodeID).
+						WithFetchRelatives(true).
+						Do(ctx)
+					return err
+				}
+				var err error
+				nodes, err = cdpaccessibility.GetFullAXTree().
+					WithDepth(int64(maxDepth)).
+					Do(ctx)
+				return err
+			})); err != nil {
+				return NewToolResult("", fmt.Errorf("browser_accessibility: %w", err))
+			}
+
+			tree := buildAXTree(nodes, selector, interestingOnly, maxDepth)
+			if len(tree) == 0 {
+				return NewToolResult("[]", nil)
+			}
+			out, err := json.MarshalIndent(tree, "", "  ")
+			if err != nil {
+				return NewToolResult("", fmt.Errorf("browser_accessibility: marshal: %w", err))
+			}
+			return NewToolResult(string(out), nil)
 		},
 		WithPermissionLevel(PermLevelRead),
 		WithLogger(logger),

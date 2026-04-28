@@ -8,9 +8,9 @@ import (
 	"github.com/odinnordico/feino/internal/model"
 )
 
-// ProviderMetrics tracks per-provider performance and reliability.
+// Metrics tracks per-provider performance and reliability.
 // All fields are safe for concurrent increment from multiple goroutines.
-type ProviderMetrics struct {
+type Metrics struct {
 	TotalRequests atomic.Int64
 	SuccessCount  atomic.Int64
 	FailureCount  atomic.Int64
@@ -27,5 +27,5 @@ type Provider interface {
 	GetSelectedModel() model.Model
 	GetLogger() *slog.Logger
 	GetCircuitBreaker() *CircuitBreaker
-	GetMetrics() *ProviderMetrics
+	GetMetrics() *Metrics
 }

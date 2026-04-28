@@ -38,7 +38,7 @@ type ErrorMsg struct{ Err error }
 type SetupRequestedMsg struct{}
 
 // WizardCompleteMsg is sent after /setup successfully finishes.
-type WizardCompleteMsg struct{ Result wizard.WizardResult }
+type WizardCompleteMsg struct{ Result wizard.Result }
 
 // ThemeToggleMsg fires when Ctrl+T is pressed.
 type ThemeToggleMsg struct{}

@@ -19,8 +19,8 @@ import (
 // All steps run inside a single huh.Form (one bubbletea program). Credential
 // groups are conditionally shown via WithHideFunc, so Shift+Tab back-navigation
 // works across all steps without any terminal-state glitches.
-func Run(ctx context.Context, existing config.Config) (WizardResult, error) {
-	var res WizardResult
+func Run(ctx context.Context, existing config.Config) (Result, error) {
+	var res Result
 	res.Theme = "neo"
 	res.WorkingDir = defaultWorkingDir()
 
@@ -142,13 +142,13 @@ func Run(ctx context.Context, existing config.Config) (WizardResult, error) {
 
 	if err := huh.NewForm(groups...).RunWithContext(ctx); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return WizardResult{}, ErrAborted
+			return Result{}, ErrAborted
 		}
-		return WizardResult{}, fmt.Errorf("wizard: %w", err)
+		return Result{}, fmt.Errorf("wizard: %w", err)
 	}
 
 	if !confirmed {
-		return WizardResult{}, ErrAborted
+		return Result{}, ErrAborted
 	}
 
 	if res.WorkingDir == "" {
@@ -168,7 +168,7 @@ func Run(ctx context.Context, existing config.Config) (WizardResult, error) {
 
 // buildSummary produces the human-readable configuration summary shown at the
 // confirmation step. The credential section is delegated to the active provider.
-func buildSummary(res WizardResult, providers []*wizardProvider) string {
+func buildSummary(res Result, providers []*wizardProvider) string {
 	providerLabel := res.Provider
 	credLine := ""
 	for _, p := range providers {

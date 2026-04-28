@@ -51,7 +51,7 @@ type Provider struct {
 
 	mu            sync.RWMutex
 	selectedModel model.Model
-	metrics       provider.ProviderMetrics
+	metrics       provider.Metrics
 }
 
 func NewProvider(ctx context.Context, config Config, logger *slog.Logger) (*Provider, error) {
@@ -169,7 +169,7 @@ func (p *Provider) GetHomepage() string {
 	return "https://deepmind.google/models/gemini/"
 }
 
-func (p *Provider) GetMetrics() *provider.ProviderMetrics {
+func (p *Provider) GetMetrics() *provider.Metrics {
 	return &p.metrics
 }
 

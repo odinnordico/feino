@@ -15,23 +15,23 @@ import (
 // ── mock backends ─────────────────────────────────────────────────────────────
 
 type mockMailbox struct {
-	summaries []EmailSummary
-	message   *EmailMessage
+	summaries []Summary
+	message   *Message
 	err       error
 }
 
-func (m *mockMailbox) list(_ context.Context, _ string, _ int, _ bool) ([]EmailSummary, error) {
+func (m *mockMailbox) list(_ context.Context, _ string, _ int, _ bool) ([]Summary, error) {
 	return m.summaries, m.err
 }
 
-func (m *mockMailbox) read(_ context.Context, _ string, _ uint32) (*EmailMessage, error) {
+func (m *mockMailbox) read(_ context.Context, _ string, _ uint32) (*Message, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.message, nil
 }
 
-func (m *mockMailbox) search(_ context.Context, _ string, _ string, _ int) ([]EmailSummary, error) {
+func (m *mockMailbox) search(_ context.Context, _ string, _ string, _ int) ([]Summary, error) {
 	return m.summaries, m.err
 }
 
@@ -72,13 +72,13 @@ func newEmptyStore(t *testing.T) credentials.Store {
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
 
-var testSummaries = []EmailSummary{
+var testSummaries = []Summary{
 	{UID: 3, From: "alice@example.com", Subject: "Hello", Date: "2024-01-03T00:00:00Z", Seen: false},
 	{UID: 2, From: "bob@example.com", Subject: "Meeting", Date: "2024-01-02T00:00:00Z", Seen: true},
 	{UID: 1, From: "carol@example.com", Subject: "Invoice", Date: "2024-01-01T00:00:00Z", Seen: true},
 }
 
-var testMessage = &EmailMessage{
+var testMessage = &Message{
 	UID:     42,
 	From:    "alice@example.com",
 	To:      "user@example.com",
@@ -98,7 +98,7 @@ func TestEmailList_ReturnsSummaries(t *testing.T) {
 		t.Fatalf("unexpected error: %s", result.Content)
 	}
 
-	var got []EmailSummary
+	var got []Summary
 	if err := json.Unmarshal([]byte(result.Content), &got); err != nil {
 		t.Fatalf("parse result: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestEmailRead_ReturnsMessage(t *testing.T) {
 		t.Fatalf("unexpected error: %s", result.Content)
 	}
 
-	var got EmailMessage
+	var got Message
 	if err := json.Unmarshal([]byte(result.Content), &got); err != nil {
 		t.Fatalf("parse result: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestEmailSearch_ReturnsMatches(t *testing.T) {
 		t.Fatalf("unexpected error: %s", result.Content)
 	}
 
-	var got []EmailSummary
+	var got []Summary
 	if err := json.Unmarshal([]byte(result.Content), &got); err != nil {
 		t.Fatalf("parse result: %v", err)
 	}
@@ -439,9 +439,6 @@ func TestExtractBodies_HTMLOnly(t *testing.T) {
 // ── formatAddress ─────────────────────────────────────────────────────────────
 
 func TestFormatAddress_WithName(t *testing.T) {
-	// Import imap types directly using the package prefix since this test is in
-	// the same package (package email), so we use the struct literal directly.
-	type addr struct{ Name, Mailbox, Host string }
 	tests := []struct {
 		name, mailbox, host, want string
 	}{

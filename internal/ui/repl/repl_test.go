@@ -63,7 +63,7 @@ func (p *replStubProvider) GetDescription() string                      { return
 func (p *replStubProvider) GetHomepage() string                         { return "" }
 func (p *replStubProvider) GetLogger() *slog.Logger                     { return slog.Default() }
 func (p *replStubProvider) GetCircuitBreaker() *provider.CircuitBreaker { return p.cb }
-func (p *replStubProvider) GetMetrics() *provider.ProviderMetrics       { return &provider.ProviderMetrics{} }
+func (p *replStubProvider) GetMetrics() *provider.Metrics               { return &provider.Metrics{} }
 func (p *replStubProvider) GetSelectedModel() model.Model               { return p.model }
 func (p *replStubProvider) SetModel(_ model.Model)                      {}
 func (p *replStubProvider) GetModels(_ context.Context) ([]model.Model, error) {

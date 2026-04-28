@@ -34,7 +34,7 @@ type Provider struct {
 
 	mu            sync.RWMutex
 	selectedModel model.Model
-	metrics       provider.ProviderMetrics
+	metrics       provider.Metrics
 }
 
 // NewProvider creates a new Anthropic provider with the given API key and logger.
@@ -140,7 +140,7 @@ func (p *Provider) GetHomepage() string {
 	return "https://www.anthropic.com/"
 }
 
-func (p *Provider) GetMetrics() *provider.ProviderMetrics {
+func (p *Provider) GetMetrics() *provider.Metrics {
 	return &p.metrics
 }
 

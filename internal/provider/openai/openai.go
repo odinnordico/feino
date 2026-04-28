@@ -38,7 +38,7 @@ type Provider struct {
 
 	mu            sync.RWMutex
 	selectedModel model.Model
-	metrics       provider.ProviderMetrics
+	metrics       provider.Metrics
 }
 
 // NewProvider constructs an OpenAI provider. apiKey is used directly when
@@ -172,7 +172,7 @@ func (p *Provider) GetCircuitBreaker() *provider.CircuitBreaker {
 	return p.circuitBreaker
 }
 
-func (p *Provider) GetMetrics() *provider.ProviderMetrics {
+func (p *Provider) GetMetrics() *provider.Metrics {
 	return &p.metrics
 }
 
@@ -263,7 +263,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 	}
 
 	params := openai.ChatCompletionNewParams{
-		Model:    openai.ChatModel(m.id),
+		Model:    m.id,
 		Messages: messages,
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: openai.Bool(true),

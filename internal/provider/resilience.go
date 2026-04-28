@@ -151,7 +151,7 @@ func Retry[T any](
 	ctx context.Context,
 	cfg RetryConfig,
 	cb *CircuitBreaker,
-	metrics *ProviderMetrics,
+	metrics *Metrics,
 	logger *slog.Logger,
 	renewFn func(ctx context.Context) error,
 	operation func(ctx context.Context) (T, error),

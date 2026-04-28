@@ -49,8 +49,8 @@ import (
 
 const credService = "email"
 
-// EmailSummary is returned by email_list and email_search.
-type EmailSummary struct {
+// Summary is returned by email_list and email_search.
+type Summary struct {
 	UID     uint32 `json:"uid"`
 	From    string `json:"from"`
 	Subject string `json:"subject"`
@@ -58,8 +58,8 @@ type EmailSummary struct {
 	Seen    bool   `json:"seen"`
 }
 
-// EmailMessage is returned by email_read.
-type EmailMessage struct {
+// Message is returned by email_read.
+type Message struct {
 	UID     uint32 `json:"uid"`
 	From    string `json:"from"`
 	To      string `json:"to"`
@@ -73,9 +73,9 @@ type EmailMessage struct {
 // imapMailbox abstracts an authenticated IMAP connection for reading mail.
 // The production implementation uses go-imap/v2; tests use mockIMAPMailbox.
 type imapMailbox interface {
-	list(ctx context.Context, folder string, limit int, unreadOnly bool) ([]EmailSummary, error)
-	read(ctx context.Context, folder string, uid uint32) (*EmailMessage, error)
-	search(ctx context.Context, folder, query string, limit int) ([]EmailSummary, error)
+	list(ctx context.Context, folder string, limit int, unreadOnly bool) ([]Summary, error)
+	read(ctx context.Context, folder string, uid uint32) (*Message, error)
+	search(ctx context.Context, folder, query string, limit int) ([]Summary, error)
 	close() error
 }
 
@@ -462,7 +462,7 @@ func productionDialIMAP(_ context.Context, cfg config.EmailServiceConfig, userna
 
 func (r *realIMAPMailbox) close() error { return r.client.Close() }
 
-func (r *realIMAPMailbox) list(_ context.Context, folder string, limit int, unreadOnly bool) ([]EmailSummary, error) {
+func (r *realIMAPMailbox) list(_ context.Context, folder string, limit int, unreadOnly bool) ([]Summary, error) {
 	if _, err := r.client.Select(folder, nil).Wait(); err != nil {
 		return nil, fmt.Errorf("select %q: %w", folder, err)
 	}
@@ -489,7 +489,7 @@ func (r *realIMAPMailbox) list(_ context.Context, folder string, limit int, unre
 	return r.fetchSummaries(uids)
 }
 
-func (r *realIMAPMailbox) search(_ context.Context, folder, query string, limit int) ([]EmailSummary, error) {
+func (r *realIMAPMailbox) search(_ context.Context, folder, query string, limit int) ([]Summary, error) {
 	if _, err := r.client.Select(folder, nil).Wait(); err != nil {
 		return nil, fmt.Errorf("select %q: %w", folder, err)
 	}
@@ -514,7 +514,7 @@ func (r *realIMAPMailbox) search(_ context.Context, folder, query string, limit 
 	return r.fetchSummaries(uids)
 }
 
-func (r *realIMAPMailbox) read(_ context.Context, folder string, uid uint32) (*EmailMessage, error) {
+func (r *realIMAPMailbox) read(_ context.Context, folder string, uid uint32) (*Message, error) {
 	if _, err := r.client.Select(folder, nil).Wait(); err != nil {
 		return nil, fmt.Errorf("select %q: %w", folder, err)
 	}
@@ -555,7 +555,7 @@ func (r *realIMAPMailbox) read(_ context.Context, folder string, uid uint32) (*E
 }
 
 // fetchSummaries fetches ENVELOPE + FLAGS for a set of UIDs.
-func (r *realIMAPMailbox) fetchSummaries(uids []imap.UID) ([]EmailSummary, error) {
+func (r *realIMAPMailbox) fetchSummaries(uids []imap.UID) ([]Summary, error) {
 	uidSet := imap.UIDSetNum(uids...)
 	fetchCmd := r.client.Fetch(uidSet, &imap.FetchOptions{
 		Envelope: true,
@@ -563,7 +563,7 @@ func (r *realIMAPMailbox) fetchSummaries(uids []imap.UID) ([]EmailSummary, error
 		UID:      true,
 	})
 
-	var summaries []EmailSummary
+	var summaries []Summary
 	for {
 		data := fetchCmd.Next()
 		if data == nil {
@@ -573,7 +573,7 @@ func (r *realIMAPMailbox) fetchSummaries(uids []imap.UID) ([]EmailSummary, error
 		if err != nil || buf.Envelope == nil {
 			continue
 		}
-		s := EmailSummary{
+		s := Summary{
 			UID:     uint32(buf.UID),
 			Subject: buf.Envelope.Subject,
 		}
@@ -599,8 +599,8 @@ func (r *realIMAPMailbox) fetchSummaries(uids []imap.UID) ([]EmailSummary, error
 }
 
 // messageFromFetch builds an EmailMessage from a FetchMessageBuffer sans body.
-func messageFromFetch(buf *imapclient.FetchMessageBuffer, uid uint32) *EmailMessage {
-	m := &EmailMessage{UID: uid}
+func messageFromFetch(buf *imapclient.FetchMessageBuffer, uid uint32) *Message {
+	m := &Message{UID: uid}
 	if buf.Envelope == nil {
 		return m
 	}

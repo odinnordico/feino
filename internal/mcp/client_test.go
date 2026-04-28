@@ -283,7 +283,6 @@ func TestSession_AsTools_ImplementsInterface(t *testing.T) {
 	if len(adapted) != 1 {
 		t.Fatalf("expected 1 adapted tool, got %d", len(adapted))
 	}
-
 }
 
 func TestSession_AsTools_Metadata(t *testing.T) {

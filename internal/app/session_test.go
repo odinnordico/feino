@@ -76,7 +76,7 @@ func (p *stubProvider) GetDescription() string                      { return "st
 func (p *stubProvider) GetHomepage() string                         { return "" }
 func (p *stubProvider) GetLogger() *slog.Logger                     { return slog.Default() }
 func (p *stubProvider) GetCircuitBreaker() *provider.CircuitBreaker { return p.cb }
-func (p *stubProvider) GetMetrics() *provider.ProviderMetrics       { return &provider.ProviderMetrics{} }
+func (p *stubProvider) GetMetrics() *provider.Metrics               { return &provider.Metrics{} }
 func (p *stubProvider) GetSelectedModel() model.Model               { return p.model }
 func (p *stubProvider) SetModel(_ model.Model)                      {}
 func (p *stubProvider) GetModels(_ context.Context) ([]model.Model, error) {

@@ -73,7 +73,7 @@ type Provider struct {
 
 	mu            sync.RWMutex
 	selectedModel model.Model
-	metrics       provider.ProviderMetrics
+	metrics       provider.Metrics
 }
 
 // NewProvider constructs a Provider from cfg. It returns an error when
@@ -172,7 +172,7 @@ func (p *Provider) GetLogger() *slog.Logger { return p.logger }
 
 func (p *Provider) GetCircuitBreaker() *provider.CircuitBreaker { return p.circuitBreaker }
 
-func (p *Provider) GetMetrics() *provider.ProviderMetrics { return &p.metrics }
+func (p *Provider) GetMetrics() *provider.Metrics { return &p.metrics }
 
 func (p *Provider) SetModel(m model.Model) {
 	p.mu.Lock()
@@ -317,7 +317,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 	}
 
 	params := openai.ChatCompletionNewParams{
-		Model:    openai.ChatModel(m.id),
+		Model:    m.id,
 		Messages: messages,
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: openai.Bool(true),

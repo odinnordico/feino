@@ -203,7 +203,7 @@ type searchResult struct {
 	Snippet string `json:"snippet"`
 }
 
-func buildSearchResults(ddg duckduckGoResponse, max int) []searchResult {
+func buildSearchResults(ddg duckduckGoResponse, maxOut int) []searchResult {
 	var out []searchResult
 
 	// Instant answer (e.g. calculator, unit conversion, currency).
@@ -226,7 +226,7 @@ func buildSearchResults(ddg duckduckGoResponse, max int) []searchResult {
 
 	// Direct results.
 	for _, r := range ddg.Results {
-		if len(out) >= max {
+		if len(out) >= maxOut {
 			break
 		}
 		if r.Text == "" {
@@ -237,7 +237,7 @@ func buildSearchResults(ddg duckduckGoResponse, max int) []searchResult {
 
 	// Related topics.
 	for _, rt := range ddg.RelatedTopics {
-		if len(out) >= max {
+		if len(out) >= maxOut {
 			break
 		}
 		if rt.Text == "" {

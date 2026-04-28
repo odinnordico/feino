@@ -15,9 +15,9 @@ import (
 // ErrAborted is returned when the user exits the wizard before completing it.
 var ErrAborted = errors.New("wizard: setup aborted by user")
 
-// WizardResult holds all values collected by the wizard. Convert to a
+// Result holds all values collected by the wizard. Convert to a
 // config.Config via ToConfig.
-type WizardResult struct {
+type Result struct {
 	// Provider is one of "anthropic", "openai", "gemini", "ollama", "openai_compat".
 	Provider string
 
@@ -52,7 +52,7 @@ type WizardResult struct {
 }
 
 // ToConfig converts a WizardResult into a config.Config ready for config.Save.
-func (r WizardResult) ToConfig() config.Config {
+func (r Result) ToConfig() config.Config {
 	cfg := config.Config{
 		Context: config.ContextConfig{
 			WorkingDir: r.WorkingDir,

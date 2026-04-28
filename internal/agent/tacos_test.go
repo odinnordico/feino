@@ -49,7 +49,7 @@ type mockProvider struct {
 	id      string
 	models  []model.Model
 	cb      *provider.CircuitBreaker
-	metrics provider.ProviderMetrics
+	metrics provider.Metrics
 }
 
 func (p *mockProvider) GetName() string                                      { return p.id }
@@ -61,7 +61,7 @@ func (p *mockProvider) GetSelectedModel() model.Model                        { r
 func (p *mockProvider) GetLogger() *slog.Logger                              { return nil }
 func (p *mockProvider) GetModels(ctx context.Context) ([]model.Model, error) { return p.models, nil }
 func (p *mockProvider) GetCircuitBreaker() *provider.CircuitBreaker          { return p.cb }
-func (p *mockProvider) GetMetrics() *provider.ProviderMetrics                { return &p.metrics }
+func (p *mockProvider) GetMetrics() *provider.Metrics                        { return &p.metrics }
 
 // Tests
 

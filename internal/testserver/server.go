@@ -152,7 +152,7 @@ func (s *SimulatedServer) handleCompletions(w http.ResponseWriter, r *http.Reque
 	}
 
 	if req.Stream {
-		s.writeSSE(w, modelName, record.Response, usage)
+		s.writeSSE(w, record.Response, usage)
 	} else {
 		s.writeJSON(w, modelName, record.Response, usage)
 	}
@@ -197,7 +197,7 @@ type sseUsage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-func (s *SimulatedServer) writeSSE(w http.ResponseWriter, model string, resp RecordedResponse, usage Usage) {
+func (s *SimulatedServer) writeSSE(w http.ResponseWriter, resp RecordedResponse, usage Usage) {
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 

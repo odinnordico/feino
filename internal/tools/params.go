@@ -52,6 +52,25 @@ func getInt(params map[string]any, key string, defaultVal int) int {
 	return defaultVal
 }
 
+// getFloat extracts a float64 parameter from the params map.
+// Handles float64, int, and int64 — JSON numbers in map[string]any are float64.
+// Returns defaultVal if the key is absent or the value cannot be cast.
+func getFloat(params map[string]any, key string, defaultVal float64) float64 {
+	v, ok := params[key]
+	if !ok {
+		return defaultVal
+	}
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	}
+	return defaultVal
+}
+
 // getBool extracts a boolean parameter from the params map.
 // Returns defaultVal if the key is absent or the value is not a bool.
 func getBool(params map[string]any, key string, defaultVal bool) bool {

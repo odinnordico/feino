@@ -10,7 +10,7 @@ import (
 )
 
 func TestWizardResult_ToConfig_Anthropic(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:     "anthropic",
 		AnthropicKey: "sk-ant-testkey",
 		DefaultModel: "claude-opus-4-6",
@@ -33,7 +33,7 @@ func TestWizardResult_ToConfig_Anthropic(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_OpenAI(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:      "openai",
 		OpenAIKey:     "sk-oai-testkey",
 		OpenAIBaseURL: "http://localhost:8080",
@@ -53,7 +53,7 @@ func TestWizardResult_ToConfig_OpenAI(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_Gemini(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:     "gemini",
 		GeminiKey:    "gem-testkey",
 		DefaultModel: "gemini-3.1-flash-lite-preview",
@@ -72,7 +72,7 @@ func TestWizardResult_ToConfig_Gemini(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_GeminiVertex(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:       "gemini",
 		GeminiVertex:   true,
 		VertexProject:  "my-project",
@@ -99,7 +99,7 @@ func TestWizardResult_ToConfig_GeminiVertex(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_Ollama(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:     "ollama",
 		OllamaHost:   "http://remote:11434",
 		DefaultModel: "llama3",
@@ -115,7 +115,7 @@ func TestWizardResult_ToConfig_Ollama(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_Ollama_DefaultHost(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:     "ollama",
 		OllamaHost:   "",
 		DefaultModel: "llama3",
@@ -127,7 +127,7 @@ func TestWizardResult_ToConfig_Ollama_DefaultHost(t *testing.T) {
 }
 
 func TestWizardResult_ToConfig_OpenAICompat(t *testing.T) {
-	r := WizardResult{
+	r := Result{
 		Provider:            "openai_compat",
 		OpenAICompatBaseURL: "http://localhost:8000/v1",
 		OpenAICompatKey:     "my-token",
@@ -156,7 +156,7 @@ func TestWizardResult_ToConfig_OpenAICompat(t *testing.T) {
 
 func TestWizardResult_ToConfig_OpenAICompat_DefaultName(t *testing.T) {
 	// When no name is given, ToConfig should default to the i18n provider label.
-	r := WizardResult{
+	r := Result{
 		Provider:            "openai_compat",
 		OpenAICompatBaseURL: "http://localhost:8000/v1",
 		DefaultModel:        "llama3",
@@ -171,7 +171,7 @@ func TestWizardResult_ToConfig_OpenAICompat_DefaultName(t *testing.T) {
 func TestWizardResult_ToConfig_OpenAICompat_NoKey(t *testing.T) {
 	// API key is optional — an empty key must be stored as-is (the provider
 	// itself handles the "none" fallback).
-	r := WizardResult{
+	r := Result{
 		Provider:            "openai_compat",
 		OpenAICompatBaseURL: "http://localhost:8000/v1",
 		DefaultModel:        "qwen-2.5",
@@ -185,7 +185,7 @@ func TestWizardResult_ToConfig_OpenAICompat_NoKey(t *testing.T) {
 // TestProviderPrefill_EnvVarFallback verifies that each provider's prefill reads
 // env vars when the saved config has no credentials.
 func TestGeminiVertexPrefill(t *testing.T) {
-	var res WizardResult
+	var res Result
 	providers := buildProviders(&res)
 
 	cfg := config.Config{
@@ -261,13 +261,13 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 		name    string
 		envs    map[string]string
 		wantID  string
-		checkFn func(t *testing.T, res WizardResult)
+		checkFn func(t *testing.T, res Result)
 	}{
 		{
 			name:   "anthropic from env",
 			envs:   map[string]string{"ANTHROPIC_API_KEY": "sk-ant-env"},
 			wantID: "anthropic",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.AnthropicKey != "sk-ant-env" {
 					t.Errorf("AnthropicKey: got %q, want sk-ant-env", res.AnthropicKey)
 				}
@@ -277,7 +277,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:   "openai key from env",
 			envs:   map[string]string{"OPENAI_API_KEY": "sk-oai-env"},
 			wantID: "openai",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.OpenAIKey != "sk-oai-env" {
 					t.Errorf("OpenAIKey: got %q, want sk-oai-env", res.OpenAIKey)
 				}
@@ -290,7 +290,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:   "openai key and base url from env",
 			envs:   map[string]string{"OPENAI_API_KEY": "sk-oai-env", "OPENAI_BASE_URL": "http://proxy:8080/v1"},
 			wantID: "openai",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.OpenAIKey != "sk-oai-env" {
 					t.Errorf("OpenAIKey: got %q", res.OpenAIKey)
 				}
@@ -303,7 +303,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:   "gemini from env",
 			envs:   map[string]string{"GEMINI_API_KEY": "gem-env"},
 			wantID: "gemini",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.GeminiKey != "gem-env" {
 					t.Errorf("GeminiKey: got %q, want gem-env", res.GeminiKey)
 				}
@@ -313,7 +313,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:   "openai_compat base url from env",
 			envs:   map[string]string{"OPENAI_COMPAT_BASE_URL": "http://gpu:8000/v1", "OPENAI_COMPAT_NAME": "GPU vLLM"},
 			wantID: "openai_compat",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.OpenAICompatBaseURL != "http://gpu:8000/v1" {
 					t.Errorf("OpenAICompatBaseURL: got %q", res.OpenAICompatBaseURL)
 				}
@@ -329,7 +329,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:   "openai_compat all fields from env",
 			envs:   map[string]string{"OPENAI_COMPAT_BASE_URL": "http://gpu:8000/v1", "OPENAI_COMPAT_API_KEY": "tok-env", "OPENAI_COMPAT_NAME": "My GPU"},
 			wantID: "openai_compat",
-			checkFn: func(t *testing.T, res WizardResult) {
+			checkFn: func(t *testing.T, res Result) {
 				if res.OpenAICompatKey != "tok-env" {
 					t.Errorf("OpenAICompatKey: got %q", res.OpenAICompatKey)
 				}
@@ -342,7 +342,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			name:    "no env vars — nothing prefilled",
 			envs:    map[string]string{},
 			wantID:  "",
-			checkFn: func(t *testing.T, res WizardResult) {},
+			checkFn: func(t *testing.T, res Result) {},
 		},
 	}
 
@@ -372,7 +372,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 				_ = os.Setenv(k, v)
 			}
 
-			var res WizardResult
+			var res Result
 			providers := buildProviders(&res)
 
 			for _, p := range providers {
@@ -398,7 +398,7 @@ func TestProviderPrefill_ConfigWinsOverEnv(t *testing.T) {
 	_ = os.Setenv("ANTHROPIC_API_KEY", "sk-ant-env")
 	t.Cleanup(func() { _ = os.Unsetenv("ANTHROPIC_API_KEY") })
 
-	var res WizardResult
+	var res Result
 	providers := buildProviders(&res)
 
 	cfg := config.Config{
@@ -439,10 +439,10 @@ func TestMaskKey(t *testing.T) {
 }
 
 func TestBuildSummary(t *testing.T) {
-	var res WizardResult
+	var res Result
 	providers := buildProviders(&res)
 
-	res = WizardResult{
+	res = Result{
 		Provider:     "anthropic",
 		AnthropicKey: "sk-ant-abc123",
 		DefaultModel: "claude-opus-4-6",
@@ -474,7 +474,7 @@ func TestProviderPrefill(t *testing.T) {
 		name       string
 		cfg        config.Config
 		wantID     string
-		wantFields func(res WizardResult) bool
+		wantFields func(res Result) bool
 	}{
 		{
 			name: "anthropic prefills key and model",
@@ -484,7 +484,7 @@ func TestProviderPrefill(t *testing.T) {
 				},
 			},
 			wantID: "anthropic",
-			wantFields: func(r WizardResult) bool {
+			wantFields: func(r Result) bool {
 				return r.AnthropicKey == "sk-ant-abc" && r.DefaultModel == "claude-opus-4-6"
 			},
 		},
@@ -496,7 +496,7 @@ func TestProviderPrefill(t *testing.T) {
 				},
 			},
 			wantID: "openai",
-			wantFields: func(r WizardResult) bool {
+			wantFields: func(r Result) bool {
 				return r.OpenAIKey == "sk-oai" && r.OpenAIBaseURL == "http://proxy" && r.DefaultModel == "gpt-4o"
 			},
 		},
@@ -508,7 +508,7 @@ func TestProviderPrefill(t *testing.T) {
 				},
 			},
 			wantID: "gemini",
-			wantFields: func(r WizardResult) bool {
+			wantFields: func(r Result) bool {
 				return r.GeminiKey == "gem-key" && r.DefaultModel == "gemini-pro"
 			},
 		},
@@ -520,7 +520,7 @@ func TestProviderPrefill(t *testing.T) {
 				},
 			},
 			wantID:     "ollama",
-			wantFields: func(r WizardResult) bool { return r.OllamaHost == "http://remote:11434" },
+			wantFields: func(r Result) bool { return r.OllamaHost == "http://remote:11434" },
 		},
 		{
 			name: "openai_compat prefills base url, key, and name",
@@ -535,7 +535,7 @@ func TestProviderPrefill(t *testing.T) {
 				},
 			},
 			wantID: "openai_compat",
-			wantFields: func(r WizardResult) bool {
+			wantFields: func(r Result) bool {
 				return r.OpenAICompatBaseURL == "http://gpu-server:8000/v1" &&
 					r.OpenAICompatKey == "tok-abc" &&
 					r.OpenAICompatName == "GPU vLLM" &&
@@ -546,7 +546,7 @@ func TestProviderPrefill(t *testing.T) {
 			name:   "empty config prefills nothing",
 			cfg:    config.Config{},
 			wantID: "",
-			wantFields: func(r WizardResult) bool {
+			wantFields: func(r Result) bool {
 				return r.AnthropicKey == "" && r.OpenAIKey == "" && r.GeminiKey == "" &&
 					r.OllamaHost == "" && r.OpenAICompatBaseURL == ""
 			},
@@ -555,7 +555,7 @@ func TestProviderPrefill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var res WizardResult
+			var res Result
 			providers := buildProviders(&res)
 
 			for _, p := range providers {
@@ -579,37 +579,37 @@ func TestProviderPrefill(t *testing.T) {
 func TestProviderSummary(t *testing.T) {
 	tests := []struct {
 		name     string
-		setup    func(res *WizardResult)
+		setup    func(res *Result)
 		provider string
 		contains string
 	}{
 		{
 			name:     "anthropic masks key",
-			setup:    func(r *WizardResult) { r.AnthropicKey = "sk-ant-abc123xyz" },
+			setup:    func(r *Result) { r.AnthropicKey = "sk-ant-abc123xyz" },
 			provider: "anthropic",
 			contains: "sk-a****",
 		},
 		{
 			name:     "openai masks key",
-			setup:    func(r *WizardResult) { r.OpenAIKey = "sk-oaiabcdefgh" },
+			setup:    func(r *Result) { r.OpenAIKey = "sk-oaiabcdefgh" },
 			provider: "openai",
 			contains: "sk-o****",
 		},
 		{
 			name:     "openai includes base url",
-			setup:    func(r *WizardResult) { r.OpenAIKey = "sk-x"; r.OpenAIBaseURL = "http://proxy" },
+			setup:    func(r *Result) { r.OpenAIKey = "sk-x"; r.OpenAIBaseURL = "http://proxy" },
 			provider: "openai",
 			contains: "http://proxy",
 		},
 		{
 			name:     "gemini masks key",
-			setup:    func(r *WizardResult) { r.GeminiKey = "gem-abcdefgh" },
+			setup:    func(r *Result) { r.GeminiKey = "gem-abcdefgh" },
 			provider: "gemini",
 			contains: "gem-****",
 		},
 		{
 			name: "gemini vertex shows project and location",
-			setup: func(r *WizardResult) {
+			setup: func(r *Result) {
 				r.GeminiVertex = true
 				r.VertexProject = "my-project"
 				r.VertexLocation = "us-central1"
@@ -619,7 +619,7 @@ func TestProviderSummary(t *testing.T) {
 		},
 		{
 			name: "gemini vertex summary includes project",
-			setup: func(r *WizardResult) {
+			setup: func(r *Result) {
 				r.GeminiVertex = true
 				r.VertexProject = "my-project"
 				r.VertexLocation = "eu-west1"
@@ -629,25 +629,25 @@ func TestProviderSummary(t *testing.T) {
 		},
 		{
 			name:     "ollama default host",
-			setup:    func(r *WizardResult) { r.OllamaHost = "" },
+			setup:    func(r *Result) { r.OllamaHost = "" },
 			provider: "ollama",
 			contains: "localhost:11434",
 		},
 		{
 			name:     "ollama custom host",
-			setup:    func(r *WizardResult) { r.OllamaHost = "http://remote:11434" },
+			setup:    func(r *Result) { r.OllamaHost = "http://remote:11434" },
 			provider: "ollama",
 			contains: "http://remote:11434",
 		},
 		{
 			name:     "openai_compat shows base url",
-			setup:    func(r *WizardResult) { r.OpenAICompatBaseURL = "http://gpu:8000/v1" },
+			setup:    func(r *Result) { r.OpenAICompatBaseURL = "http://gpu:8000/v1" },
 			provider: "openai_compat",
 			contains: "http://gpu:8000/v1",
 		},
 		{
 			name: "openai_compat masks key when present",
-			setup: func(r *WizardResult) {
+			setup: func(r *Result) {
 				r.OpenAICompatBaseURL = "http://gpu:8000/v1"
 				r.OpenAICompatKey = "tok-abcdefgh"
 			},
@@ -656,7 +656,7 @@ func TestProviderSummary(t *testing.T) {
 		},
 		{
 			name: "openai_compat shows name",
-			setup: func(r *WizardResult) {
+			setup: func(r *Result) {
 				r.OpenAICompatBaseURL = "http://gpu:8000/v1"
 				r.OpenAICompatName = "My GPU"
 			},
@@ -667,7 +667,7 @@ func TestProviderSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var res WizardResult
+			var res Result
 			providers := buildProviders(&res)
 			tt.setup(&res)
 

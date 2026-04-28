@@ -80,8 +80,8 @@ type Session struct {
 	inFlight atomic.Bool
 
 	// subsystems
-	ctxMgr            appctx.ContextManager
-	security          *security.SecurityGate
+	ctxMgr            appctx.Manager
+	security          *security.Gate
 	dispatcher        *security.Dispatcher // gate-wrapped; used for normal dispatch
 	ungatedDispatcher *security.Dispatcher // unwrapped; used only after explicit user approval
 	router            *agent.TACOSRouter
@@ -196,7 +196,7 @@ func New(cfg config.Config, opts ...SessionOption) (*Session, error) {
 	}
 
 	// Context manager.
-	ctxOpts := []appctx.ContextManagerOption{
+	ctxOpts := []appctx.ManagerOption{
 		appctx.WithContextLogger(s.logger),
 	}
 	if cfg.Context.GlobalConfigPath != "" {

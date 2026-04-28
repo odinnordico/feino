@@ -9,18 +9,18 @@ import (
 )
 
 // GateOption configures a SecurityGate.
-type GateOption func(*SecurityGate)
+type GateOption func(*Gate)
 
 // WithGateLogger sets the logger used to record gate decisions.
 func WithGateLogger(l *slog.Logger) GateOption {
-	return func(g *SecurityGate) { g.logger = l }
+	return func(g *Gate) { g.logger = l }
 }
 
 // WithDenyCallback registers a function called synchronously whenever a tool
 // invocation is denied. The callback receives the tool name, the required level,
 // and the current maximum allowed level.
 func WithDenyCallback(fn func(toolName string, required, allowed PermissionLevel)) GateOption {
-	return func(g *SecurityGate) { g.onDeny = fn }
+	return func(g *Gate) { g.onDeny = fn }
 }
 
 // WithPathPolicy attaches a PathPolicy to the gate. When set, every tool
@@ -30,7 +30,7 @@ func WithDenyCallback(fn func(toolName string, required, allowed PermissionLevel
 //
 // Tools without a path parameter (e.g. shell_exec) are unaffected.
 func WithPathPolicy(pp *PathPolicy) GateOption {
-	return func(g *SecurityGate) { g.pathPolicy = pp }
+	return func(g *Gate) { g.pathPolicy = pp }
 }
 
 // WithASTBlacklist attaches an ASTBlacklist to the gate. When set, every
@@ -39,7 +39,7 @@ func WithPathPolicy(pp *PathPolicy) GateOption {
 // nesting depth — causes an absolute denial regardless of the gate's permission
 // level.
 func WithASTBlacklist(bl *ASTBlacklist) GateOption {
-	return func(g *SecurityGate) { g.astBlacklist = bl }
+	return func(g *Gate) { g.astBlacklist = bl }
 }
 
 // WithExtraToolLevels merges additional tool-to-level mappings into the gate.
@@ -47,14 +47,14 @@ func WithASTBlacklist(bl *ASTBlacklist) GateOption {
 // dynamically-discovered tools (e.g. MCP tools). Entries are copied so later
 // mutations to the caller's map do not affect the gate.
 func WithExtraToolLevels(levels map[string]PermissionLevel) GateOption {
-	return func(g *SecurityGate) {
+	return func(g *Gate) {
 		maps.Copy(g.extraLevels, levels)
 	}
 }
 
-// SecurityGate enforces a maximum permission level on all tool invocations.
+// Gate enforces a maximum permission level on all tool invocations.
 // Construct one with NewSecurityGate; it is safe for concurrent use after construction.
-type SecurityGate struct {
+type Gate struct {
 	maxLevel     PermissionLevel
 	extraLevels  map[string]PermissionLevel
 	logger       *slog.Logger
@@ -97,8 +97,8 @@ func (e *ErrPathDenied) Error() string {
 
 // NewSecurityGate creates a SecurityGate that allows tool invocations up to
 // maxLevel. Invocations requiring a higher level are denied.
-func NewSecurityGate(maxLevel PermissionLevel, opts ...GateOption) *SecurityGate {
-	g := &SecurityGate{
+func NewSecurityGate(maxLevel PermissionLevel, opts ...GateOption) *Gate {
+	g := &Gate{
 		maxLevel:    maxLevel,
 		extraLevels: make(map[string]PermissionLevel),
 		logger:      slog.Default(),
@@ -117,7 +117,7 @@ func NewSecurityGate(maxLevel PermissionLevel, opts ...GateOption) *SecurityGate
 //  1. Permission level — denied if the tool's required level exceeds maxLevel.
 //  2. Path policy     — denied if the resolved path is not within an approved root.
 //  3. AST blacklist   — denied if the command contains a prohibited network or FS operation.
-func (g *SecurityGate) Check(t tools.Tool, params map[string]any) error {
+func (g *Gate) Check(t tools.Tool, params map[string]any) error {
 	required := LevelForTool(t, params, g.extraLevels)
 	if required > g.maxLevel {
 		if g.onDeny != nil {
@@ -159,13 +159,13 @@ func (g *SecurityGate) Check(t tools.Tool, params map[string]any) error {
 // WrapTool returns a tools.Tool whose Run method is intercepted by the gate.
 // Metadata methods (GetName, GetDescription, GetParameters) pass through unchanged,
 // so providers can still use the tool for schema generation.
-func (g *SecurityGate) WrapTool(t tools.Tool) tools.Tool {
+func (g *Gate) WrapTool(t tools.Tool) tools.Tool {
 	return &gatedTool{inner: t, gate: g}
 }
 
 // WrapTools wraps every tool in ts and returns a new slice. The original slice
 // is not modified.
-func (g *SecurityGate) WrapTools(ts []tools.Tool) []tools.Tool {
+func (g *Gate) WrapTools(ts []tools.Tool) []tools.Tool {
 	wrapped := make([]tools.Tool, len(ts))
 	for i, t := range ts {
 		wrapped[i] = g.WrapTool(t)
@@ -176,7 +176,7 @@ func (g *SecurityGate) WrapTools(ts []tools.Tool) []tools.Tool {
 // gatedTool intercepts Run to enforce the gate's permission policy.
 type gatedTool struct {
 	inner tools.Tool
-	gate  *SecurityGate
+	gate  *Gate
 }
 
 func (t *gatedTool) GetName() string               { return t.inner.GetName() }

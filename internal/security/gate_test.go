@@ -320,8 +320,9 @@ func TestGate_WrapTools(t *testing.T) {
 		"browser_navigate": true, "browser_back": true, "browser_forward": true,
 		"browser_reload": true, "browser_hover": true, "browser_screenshot": true,
 		"browser_get_text": true, "browser_get_html": true, "browser_wait": true,
-		"browser_scroll": true, "browser_info": true, "browser_switch_tab": true,
+		"browser_scroll": true, "browser_set_viewport": true, "browser_info": true, "browser_switch_tab": true,
 		"browser_new_tab": true, "browser_close_tab": true,
+		"browser_console_log": true, "browser_network": true, "browser_accessibility": true,
 	}
 
 	for _, wt := range wrapped {

@@ -247,7 +247,7 @@ func doerToClient(doer interface {
 	// Extract the underlying transport so that the new *http.Client's
 	// CheckRedirect policy actually fires — wrapping doer.Do would let the
 	// doer's own redirect logic run before we could intercept it.
-	var transport http.RoundTripper = http.DefaultTransport
+	transport := http.DefaultTransport
 	if c, ok := doer.(*http.Client); ok && c.Transport != nil {
 		transport = c.Transport
 	}
@@ -258,11 +258,6 @@ func doerToClient(doer interface {
 		},
 	}
 }
-
-// roundTripFunc adapts a plain function to http.RoundTripper.
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // extractStringMap reads a map[string]string from params[key].
 // The value arrives as map[string]any from JSON decoding.

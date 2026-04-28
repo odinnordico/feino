@@ -36,7 +36,7 @@ type Provider struct {
 
 	mu            sync.RWMutex
 	selectedModel model.Model
-	metrics       provider.ProviderMetrics
+	metrics       provider.Metrics
 }
 
 // ollamaRetryConfig returns retry settings tuned for local Ollama inference.
@@ -173,7 +173,7 @@ func (p *Provider) GetHomepage() string {
 	return "https://ollama.com/"
 }
 
-func (p *Provider) GetMetrics() *provider.ProviderMetrics {
+func (p *Provider) GetMetrics() *provider.Metrics {
 	return &p.metrics
 }
 

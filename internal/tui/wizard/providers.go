@@ -44,7 +44,7 @@ type wizardProvider struct {
 	// prefill copies any existing credentials from cfg into res and returns
 	// true when credentials were found. The first provider that returns true
 	// becomes the pre-selected provider in the form.
-	prefill func(cfg config.Config, res *WizardResult) bool
+	prefill func(cfg config.Config, res *Result) bool
 
 	// summary returns the credential portion of the confirmation summary.
 	// It is called after form.Run() returns, so res reflects the user's entries.
@@ -52,12 +52,12 @@ type wizardProvider struct {
 
 	// finalize sets any derived fields on res after form.Run() returns.
 	// May be nil when no post-processing is needed.
-	finalize func(res *WizardResult)
+	finalize func(res *Result)
 }
 
 // buildProviders constructs all registered provider definitions.
 // res is the shared WizardResult pointer whose fields the form will populate.
-func buildProviders(res *WizardResult) []*wizardProvider {
+func buildProviders(res *Result) []*wizardProvider {
 	return []*wizardProvider{
 		anthropicProvider(res),
 		openaiProvider(res),
@@ -67,7 +67,7 @@ func buildProviders(res *WizardResult) []*wizardProvider {
 	}
 }
 
-func anthropicProvider(res *WizardResult) *wizardProvider {
+func anthropicProvider(res *Result) *wizardProvider {
 	return &wizardProvider{
 		id:    "anthropic",
 		label: i18n.T("provider_anthropic"),
@@ -91,7 +91,7 @@ func anthropicProvider(res *WizardResult) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "anthropic" }),
-		prefill: func(cfg config.Config, res *WizardResult) bool {
+		prefill: func(cfg config.Config, res *Result) bool {
 			key := cfg.Providers.Anthropic.APIKey
 			if key == "" {
 				key = os.Getenv("ANTHROPIC_API_KEY")
@@ -109,7 +109,7 @@ func anthropicProvider(res *WizardResult) *wizardProvider {
 	}
 }
 
-func openaiProvider(res *WizardResult) *wizardProvider {
+func openaiProvider(res *Result) *wizardProvider {
 	return &wizardProvider{
 		id:    "openai",
 		label: i18n.T("provider_openai"),
@@ -144,7 +144,7 @@ func openaiProvider(res *WizardResult) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai" }),
-		prefill: func(cfg config.Config, res *WizardResult) bool {
+		prefill: func(cfg config.Config, res *Result) bool {
 			key := cfg.Providers.OpenAI.APIKey
 			if key == "" {
 				key = os.Getenv("OPENAI_API_KEY")
@@ -170,7 +170,7 @@ func openaiProvider(res *WizardResult) *wizardProvider {
 	}
 }
 
-func geminiProvider(res *WizardResult) *wizardProvider {
+func geminiProvider(res *Result) *wizardProvider {
 	return &wizardProvider{
 		id:    "gemini",
 		label: i18n.T("provider_gemini"),
@@ -233,7 +233,7 @@ func geminiProvider(res *WizardResult) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "gemini" }),
-		prefill: func(cfg config.Config, res *WizardResult) bool {
+		prefill: func(cfg config.Config, res *Result) bool {
 			// Vertex AI path.
 			if cfg.Providers.Gemini.Vertex != nil && *cfg.Providers.Gemini.Vertex {
 				res.GeminiVertex = true
@@ -266,7 +266,7 @@ func geminiProvider(res *WizardResult) *wizardProvider {
 	}
 }
 
-func ollamaProvider(res *WizardResult) *wizardProvider {
+func ollamaProvider(res *Result) *wizardProvider {
 	// Try to list locally-available models before the form runs so we can
 	// offer a select instead of a text input. The host may already be
 	// known if this is a re-run via /setup; otherwise we probe localhost.
@@ -308,7 +308,7 @@ func ollamaProvider(res *WizardResult) *wizardProvider {
 					Value(&res.OllamaHost),
 			).WithHideFunc(func() bool { return res.Provider != "ollama" }),
 		},
-		prefill: func(cfg config.Config, res *WizardResult) bool {
+		prefill: func(cfg config.Config, res *Result) bool {
 			if cfg.Providers.Ollama.DefaultModel == "" {
 				return false
 			}
@@ -329,7 +329,7 @@ func ollamaProvider(res *WizardResult) *wizardProvider {
 	}
 }
 
-func openaiCompatProvider(res *WizardResult) *wizardProvider {
+func openaiCompatProvider(res *Result) *wizardProvider {
 	return &wizardProvider{
 		id:    "openai_compat",
 		label: i18n.T("provider_openai_compat"),
@@ -363,7 +363,7 @@ func openaiCompatProvider(res *WizardResult) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai_compat" }),
-		prefill: func(cfg config.Config, res *WizardResult) bool {
+		prefill: func(cfg config.Config, res *Result) bool {
 			baseURL := cfg.Providers.OpenAICompat.BaseURL
 			if baseURL == "" {
 				baseURL = os.Getenv("OPENAI_COMPAT_BASE_URL")
@@ -395,7 +395,7 @@ func openaiCompatProvider(res *WizardResult) *wizardProvider {
 			s += "\n" + i18n.T("summary_name") + ": " + name
 			return s
 		},
-		finalize: func(res *WizardResult) {
+		finalize: func(res *Result) {
 			if res.OpenAICompatName == "" {
 				res.OpenAICompatName = i18n.T("provider_openai_compat")
 			}

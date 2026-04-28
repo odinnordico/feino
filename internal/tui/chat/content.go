@@ -106,12 +106,12 @@ func (m Model) appendProfile() Model {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("## %s\n\n", i18n.T("profile_title")))
-	sb.WriteString(fmt.Sprintf("- **Name:** %s\n", name))
-	sb.WriteString(fmt.Sprintf("- **Timezone:** %s\n", tz))
-	sb.WriteString(fmt.Sprintf("- **Communication style:** %s\n\n", style))
+	fmt.Fprintf(&sb, "## %s\n\n", i18n.T("profile_title"))
+	fmt.Fprintf(&sb, "- **Name:** %s\n", name)
+	fmt.Fprintf(&sb, "- **Timezone:** %s\n", tz)
+	fmt.Fprintf(&sb, "- **Communication style:** %s\n\n", style)
 
-	sb.WriteString(fmt.Sprintf("## %s\n\n", i18n.T("profile_memories_title")))
+	fmt.Fprintf(&sb, "## %s\n\n", i18n.T("profile_memories_title"))
 	if m.memStore == nil {
 		sb.WriteString(i18n.T("profile_memories_empty") + "\n")
 	} else {
@@ -131,9 +131,9 @@ func (m Model) appendProfile() Model {
 				}
 				// Category names are ASCII; byte-level capitalisation is safe.
 				catName := strings.ToUpper(string(cat)[:1]) + string(cat)[1:]
-				sb.WriteString(fmt.Sprintf("**%s**\n", catName))
+				fmt.Fprintf(&sb, "**%s**\n", catName)
 				for _, e := range catEntries {
-					sb.WriteString(fmt.Sprintf("- `%s` %s\n", e.ID[:8], e.Content))
+					fmt.Fprintf(&sb, "- `%s` %s\n", e.ID[:8], e.Content)
 				}
 				sb.WriteString("\n")
 			}

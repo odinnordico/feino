@@ -129,27 +129,21 @@ func (m Model) Init() tea.Cmd {
 // Update handles all incoming messages.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		var resizeCmd tea.Cmd
 		m, resizeCmd = m.handleResize()
 		return m, resizeCmd
-
 	case tea.KeyMsg:
 		return m.handleKey(msg)
-
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
-
 	case SessionEventMsg:
 		return m.handleSessionEvent(msg.Event)
-
 	case ThoughtReceivedMsg:
 		// Thought content is discarded — the status bar shows the ReAct state.
 		return m, nil
-
 	case PartReceivedMsg:
 		workspace, _, newInThought := routeStreamChunk(msg.Text, m.inThought)
 		m.inThought = newInThought
@@ -159,14 +153,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vp.GotoBottom()
 		}
 		return m, nil
-
 	case ToolCallMsg:
 		notification := fmt.Sprintf("\n> ⚙️ **Calling:** `%s`\n\n", msg.Call.Name)
 		m.pendingChunk += notification
 		m.vp.SetContent(m.renderedContent + m.pendingChunk)
 		m.vp.GotoBottom()
 		return m, nil
-
 	case CompleteMsg:
 		m.busy = false
 		m = m.flushPendingChunk()
@@ -180,15 +172,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, sendCmd
 		}
 		return m, nil
-
 	case StateChangedMsg:
 		m.reactState = msg.State
 		return m, nil
-
 	case UsageUpdatedMsg:
 		m.usage = msg.Meta
 		return m, nil
-
 	case ErrorMsg:
 		m.busy = false
 		m = m.appendErrorText(msg.Err.Error())
@@ -197,36 +186,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m = m.appendInfoText(i18n.Tp("msg_queue_discarded", n, map[string]any{"Count": n}))
 		}
 		return m, nil
-
 	case ThemeToggleMsg:
 		var themeCmd tea.Cmd
 		m, themeCmd = m.cycleTheme()
 		return m, themeCmd
-
 	case SetupRequestedMsg:
 		return m.enterSetup()
-
 	case WizardCompleteMsg:
 		return m.applyWizardResult(msg.Result)
-
 	case SetupEmailRequestedMsg:
 		return m.enterEmailSetup()
-
 	case EmailSetupCompleteMsg:
 		return m.applyEmailSetupResult(msg.Result)
-
 	case PluginsReloadedMsg:
 		return m.appendInfoText(i18n.Tp("plugins_reloaded", msg.Count, map[string]any{"Count": msg.Count})), nil
-
 	case YoloRequestedMsg:
 		m.yoloPick = &yoloPicker{selectedIdx: 0}
 		return m, nil
-
 	case YoloExpiredMsg:
 		m.sess.ClearBypassMode()
 		m = m.appendInfoText(i18n.T("yolo_expired"))
 		return m, nil
-
 	case LangRequestedMsg:
 		idx := 0
 		for i, e := range langEntries {
@@ -237,7 +217,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.langPick = &langPicker{selectedIdx: idx}
 		return m, nil
-
 	case ThemeRequestedMsg:
 		idx := 0
 		for i, e := range themeEntries {
@@ -248,7 +227,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.themePick = &themePicker{selectedIdx: idx}
 		return m, nil
-
 	case PermissionRequestMsg:
 		m.permPrompt = &permissionPrompt{
 			toolName: msg.ToolName,
@@ -258,12 +236,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			choice:   false,
 		}
 		return m, nil
-
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spin, cmd = m.spin.Update(msg)
 		return m, cmd
-
 	case tea.QuitMsg:
 		m.cancel()
 		return m, tea.Quit

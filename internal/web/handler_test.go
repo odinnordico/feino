@@ -86,7 +86,7 @@ func (p *testProvider) GetDescription() string                      { return "te
 func (p *testProvider) GetHomepage() string                         { return "" }
 func (p *testProvider) GetLogger() *slog.Logger                     { return slog.Default() }
 func (p *testProvider) GetCircuitBreaker() *provider.CircuitBreaker { return p.cb }
-func (p *testProvider) GetMetrics() *provider.ProviderMetrics       { return &provider.ProviderMetrics{} }
+func (p *testProvider) GetMetrics() *provider.Metrics               { return &provider.Metrics{} }
 func (p *testProvider) GetSelectedModel() model.Model               { return p.mdl }
 func (p *testProvider) SetModel(_ model.Model)                      {}
 func (p *testProvider) GetModels(_ context.Context) ([]model.Model, error) {

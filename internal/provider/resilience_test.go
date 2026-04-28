@@ -138,7 +138,7 @@ func TestRetry(t *testing.T) {
 
 	t.Run("MetricsTracking", func(t *testing.T) {
 		cb.RecordSuccess()
-		metrics := &ProviderMetrics{}
+		metrics := &Metrics{}
 		_, _ = Retry(context.Background(), cfg, cb, metrics, logger, nil, func(ctx context.Context) (string, error) {
 			return "", errors.New("service unavailable 503")
 		})

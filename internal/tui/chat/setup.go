@@ -82,7 +82,7 @@ func (m Model) enterSetup() (tea.Model, tea.Cmd) {
 	)
 }
 
-func (m Model) applyWizardResult(res wizard.WizardResult) (tea.Model, tea.Cmd) {
+func (m Model) applyWizardResult(res wizard.Result) (tea.Model, tea.Cmd) {
 	newCfg := res.ToConfig()
 	if err := m.sess.UpdateConfig(newCfg); err != nil {
 		return m.appendErrorText(i18n.Tf("config_apply_failed", map[string]any{"Error": err.Error()})), nil

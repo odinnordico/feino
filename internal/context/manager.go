@@ -70,13 +70,13 @@ func renderPrompt(data promptData) (string, error) {
 
 // ContextFiles defines the strict fallback hierarchy for context detection.
 var ContextFiles = []string{
-	constants.FEINO_MD,
-	constants.GEMINI_MD,
-	constants.CLAUDE_MD,
+	constants.FeinoMD,
+	constants.GeminiMD,
+	constants.ClaudeMd,
 }
 
-// ContextManager defines the interface for mapping and learning environment rules.
-type ContextManager interface {
+// Manager defines the interface for mapping and learning environment rules.
+type Manager interface {
 	AutoDetect() bool
 	GetActiveFile() string
 	GetSystemPrompt() (string, error)
@@ -112,11 +112,11 @@ type memoryStore interface {
 	FormatPrompt() (string, error)
 }
 
-// ContextManagerOption configures a FileSystemContextManager.
-type ContextManagerOption func(*FileSystemContextManager)
+// ManagerOption configures a FileSystemContextManager.
+type ManagerOption func(*FileSystemContextManager)
 
 // WithContextLogger sets the logger used by the context manager and its parser.
-func WithContextLogger(logger *slog.Logger) ContextManagerOption {
+func WithContextLogger(logger *slog.Logger) ManagerOption {
 	return func(m *FileSystemContextManager) {
 		m.logger = logger
 	}
@@ -124,7 +124,7 @@ func WithContextLogger(logger *slog.Logger) ContextManagerOption {
 
 // WithGlobalConfigPath overrides the default global config path (~/.feino/config.md).
 // Set to an empty string to disable loading the global config entirely.
-func WithGlobalConfigPath(path string) ContextManagerOption {
+func WithGlobalConfigPath(path string) ManagerOption {
 	return func(m *FileSystemContextManager) {
 		m.globalConfigPath = path
 	}
@@ -133,7 +133,7 @@ func WithGlobalConfigPath(path string) ContextManagerOption {
 // WithUserProfile sets the pre-formatted user profile string that is injected
 // into every system prompt as a <user_profile> block. Pass the result of
 // config.UserProfileConfig.FormatPrompt(). A non-empty string enables the block.
-func WithUserProfile(profile string) ContextManagerOption {
+func WithUserProfile(profile string) ManagerOption {
 	return func(m *FileSystemContextManager) {
 		m.userProfile = profile
 	}
@@ -141,14 +141,14 @@ func WithUserProfile(profile string) ContextManagerOption {
 
 // WithMemoryStore attaches a memory store to the context manager. When set,
 // FormatPrompt is called each turn and injected as an <agent_memories> block.
-func WithMemoryStore(store memoryStore) ContextManagerOption {
+func WithMemoryStore(store memoryStore) ManagerOption {
 	return func(m *FileSystemContextManager) {
 		m.memoryStore = store
 	}
 }
 
 // NewFileSystemContextManager creates a new context manager aiming at the target directory.
-func NewFileSystemContextManager(workingDir string, opts ...ContextManagerOption) *FileSystemContextManager {
+func NewFileSystemContextManager(workingDir string, opts ...ManagerOption) *FileSystemContextManager {
 	home, _ := os.UserHomeDir()
 	m := &FileSystemContextManager{
 		logger:           slog.Default(),
