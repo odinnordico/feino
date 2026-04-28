@@ -65,7 +65,7 @@ jobs:
     env:
       IS_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
