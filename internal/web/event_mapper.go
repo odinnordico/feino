@@ -9,11 +9,11 @@ import (
 	"github.com/odinnordico/feino/internal/tokens"
 )
 
-// eventToProto converts a single app.Event into a protobuf AgentEvent.
+// eventToProto converts a single app.Event into a protobuf SendMessageResponse.
 // done is true when the stream should be closed after sending this event
 // (CompleteEvent, ErrorEvent).
 // Returns (nil, false, nil) for event kinds that should be silently skipped.
-func eventToProto(e app.Event) (msg *feinov1.AgentEvent, done bool, err error) {
+func eventToProto(e app.Event) (msg *feinov1.SendMessageResponse, done bool, err error) {
 	switch e.Kind {
 	case app.EventPartReceived:
 		return partReceivedEvent(e.Payload)
@@ -34,7 +34,7 @@ func eventToProto(e app.Event) (msg *feinov1.AgentEvent, done bool, err error) {
 
 // ── per-kind converters ───────────────────────────────────────────────────────
 
-func partReceivedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func partReceivedEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	part, ok := payload.(model.MessagePart)
 	if !ok {
 		return nil, false, fmt.Errorf("event_mapper: expected model.MessagePart, got %T", payload)
@@ -43,15 +43,15 @@ func partReceivedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
 	switch p := part.(type) {
 	case *model.ThoughtPart:
 		text, _ := p.GetContent().(string)
-		return &feinov1.AgentEvent{
-			Event: &feinov1.AgentEvent_ThoughtReceived{
+		return &feinov1.SendMessageResponse{
+			Event: &feinov1.SendMessageResponse_ThoughtReceived{
 				ThoughtReceived: &feinov1.ThoughtReceivedEvent{Text: text},
 			},
 		}, false, nil
 	case *model.ToolCallPart:
 		tc, _ := p.GetContent().(model.ToolCall)
-		return &feinov1.AgentEvent{
-			Event: &feinov1.AgentEvent_ToolCall{
+		return &feinov1.SendMessageResponse{
+			Event: &feinov1.SendMessageResponse_ToolCall{
 				ToolCall: &feinov1.ToolCallEvent{
 					CallId:    tc.ID,
 					Name:      tc.Name,
@@ -61,8 +61,8 @@ func partReceivedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
 		}, false, nil
 	case *model.ToolResultPart:
 		tr, _ := p.GetContent().(model.ToolResult)
-		return &feinov1.AgentEvent{
-			Event: &feinov1.AgentEvent_ToolResult{
+		return &feinov1.SendMessageResponse{
+			Event: &feinov1.SendMessageResponse_ToolResult{
 				ToolResult: &feinov1.ToolResultEvent{
 					CallId:  tr.CallID,
 					Name:    tr.Name,
@@ -77,30 +77,30 @@ func partReceivedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
 		if content, ok := part.GetContent().(string); ok {
 			text = content
 		}
-		return &feinov1.AgentEvent{
-			Event: &feinov1.AgentEvent_PartReceived{
+		return &feinov1.SendMessageResponse{
+			Event: &feinov1.SendMessageResponse_PartReceived{
 				PartReceived: &feinov1.PartReceivedEvent{Text: text},
 			},
 		}, false, nil
 	}
 }
 
-func stateChangedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func stateChangedEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	state := fmt.Sprintf("%v", payload) // agent.ReActState is a string alias
-	return &feinov1.AgentEvent{
-		Event: &feinov1.AgentEvent_StateChanged{
+	return &feinov1.SendMessageResponse{
+		Event: &feinov1.SendMessageResponse_StateChanged{
 			StateChanged: &feinov1.StateChangedEvent{State: state},
 		},
 	}, false, nil
 }
 
-func usageUpdatedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func usageUpdatedEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	meta, ok := payload.(tokens.UsageMetadata)
 	if !ok {
 		return nil, false, fmt.Errorf("event_mapper: expected tokens.UsageMetadata, got %T", payload)
 	}
-	return &feinov1.AgentEvent{
-		Event: &feinov1.AgentEvent_UsageUpdated{
+	return &feinov1.SendMessageResponse{
+		Event: &feinov1.SendMessageResponse_UsageUpdated{
 			UsageUpdated: &feinov1.UsageUpdatedEvent{
 				Usage: &feinov1.UsageMetadata{
 					PromptTokens:     int32(meta.PromptTokens),
@@ -112,37 +112,37 @@ func usageUpdatedEvent(payload any) (*feinov1.AgentEvent, bool, error) {
 	}, false, nil
 }
 
-func completeEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func completeEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	finalText := ""
 	if msg, ok := payload.(model.Message); ok {
 		finalText = msg.GetTextContent()
 	}
-	return &feinov1.AgentEvent{
-		Event: &feinov1.AgentEvent_Complete{
+	return &feinov1.SendMessageResponse{
+		Event: &feinov1.SendMessageResponse_Complete{
 			Complete: &feinov1.CompleteEvent{FinalText: finalText},
 		},
 	}, true, nil // done=true → close stream
 }
 
-func errorEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func errorEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	msg := "unknown error"
 	if err, ok := payload.(error); ok {
 		msg = err.Error()
 	}
-	return &feinov1.AgentEvent{
-		Event: &feinov1.AgentEvent_Error{
+	return &feinov1.SendMessageResponse{
+		Event: &feinov1.SendMessageResponse_Error{
 			Error: &feinov1.ErrorEvent{Message: msg, Code: "internal"},
 		},
 	}, true, nil // done=true → close stream
 }
 
-func permissionRequestEvent(payload any) (*feinov1.AgentEvent, bool, error) {
+func permissionRequestEvent(payload any) (*feinov1.SendMessageResponse, bool, error) {
 	p, ok := payload.(permissionRequestPayload)
 	if !ok {
 		return nil, false, fmt.Errorf("event_mapper: expected permissionRequestPayload, got %T", payload)
 	}
-	return &feinov1.AgentEvent{
-		Event: &feinov1.AgentEvent_PermissionRequest{
+	return &feinov1.SendMessageResponse{
+		Event: &feinov1.SendMessageResponse_PermissionRequest{
 			PermissionRequest: &feinov1.PermissionRequestEvent{
 				RequestId: p.RequestID,
 				ToolName:  p.ToolName,

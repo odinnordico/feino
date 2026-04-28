@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/ollama/ollama/api"
 
 	"github.com/odinnordico/feino/internal/model"
 	"github.com/odinnordico/feino/internal/provider"
@@ -25,7 +24,7 @@ import (
 const ProviderID = "ollama"
 
 type Provider struct {
-	client         *api.Client
+	client         *Client
 	logger         *slog.Logger
 	retryConfig    provider.RetryConfig
 	circuitBreaker *provider.CircuitBreaker
@@ -72,7 +71,7 @@ func NewProvider(ctx context.Context, logger *slog.Logger) (*Provider, error) {
 }
 
 // createAndEnsureClient checks if ollama is running, starts it if not, and creates a client
-func (p *Provider) createAndEnsureClient(ctx context.Context) (*api.Client, error) {
+func (p *Provider) createAndEnsureClient(ctx context.Context) (*Client, error) {
 	if !p.isTesting {
 		// Check if ollama is installed
 		path, err := exec.LookPath("ollama")
@@ -135,10 +134,10 @@ func (p *Provider) createAndEnsureClient(ctx context.Context) (*api.Client, erro
 		if httpClient == nil {
 			httpClient = http.DefaultClient
 		}
-		return api.NewClient(baseURL, httpClient), nil
+		return NewClient(baseURL, httpClient), nil
 	}
 
-	client, err := api.ClientFromEnvironment()
+	client, err := ClientFromEnvironment()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ollama client: %w", err)
 	}
@@ -292,22 +291,22 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 		"tools", len(opts.Tools),
 	)
 
-	messages := make([]api.Message, 0, len(history))
+	messages := make([]Message, 0, len(history))
 	for _, msg := range history {
 		var content strings.Builder
-		var toolCalls []api.ToolCall
+		var toolCalls []ToolCall
 
 		for p := range msg.GetParts().Iterator() {
 			switch v := p.GetContent().(type) {
 			case string:
 				content.WriteString(v)
 			case model.ToolCall:
-				var args api.ToolCallFunctionArguments
+				var args ToolCallFunctionArguments
 				if err := json.Unmarshal([]byte(v.Arguments), &args); err != nil {
 					m.GetLogger().Error("failed to unmarshal tool call arguments", "error", err)
 				}
-				toolCalls = append(toolCalls, api.ToolCall{
-					Function: api.ToolCallFunction{
+				toolCalls = append(toolCalls, ToolCall{
+					Function: ToolCallFunction{
 						Name:      v.Name,
 						Arguments: args,
 					},
@@ -328,7 +327,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 			role = "tool"
 		}
 
-		messages = append(messages, api.Message{
+		messages = append(messages, Message{
 			Role:      role,
 			Content:   content.String(),
 			ToolCalls: toolCalls,
@@ -350,7 +349,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 	}
 
 	stream := true
-	req := &api.ChatRequest{
+	req := &ChatRequest{
 		Model:    m.id,
 		Messages: messages,
 		Stream:   &stream,
@@ -359,15 +358,15 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Map Tools
 	if len(opts.Tools) > 0 {
-		ollamaTools := make([]api.Tool, 0, len(opts.Tools))
+		ollamaTools := make([]Tool, 0, len(opts.Tools))
 		for _, t := range opts.Tools {
-			var params api.ToolFunctionParameters
+			var params ToolFunctionParameters
 			paramsJSON, _ := json.Marshal(t.GetParameters())
 			_ = json.Unmarshal(paramsJSON, &params)
 
-			ollamaTools = append(ollamaTools, api.Tool{
+			ollamaTools = append(ollamaTools, Tool{
 				Type: "function",
-				Function: api.ToolFunction{
+				Function: ToolFunction{
 					Name:        t.GetName(),
 					Description: t.GetDescription(),
 					Parameters:  params,
@@ -383,7 +382,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 	}
 
 	var usage model.Usage
-	fn := func(resp api.ChatResponse) error {
+	fn := func(resp ChatResponse) error {
 		if resp.Message.Content != "" {
 			part := model.NewTextMessagePart(model.MessageRoleAssistant, resp.Message.Content)
 			resParts.PushBack(part)

@@ -43,9 +43,9 @@ var _ feinov1connect.FeinoServiceHandler = (*FeinoServiceHandler)(nil)
 func (h *FeinoServiceHandler) GetSessionState(
 	_ context.Context,
 	_ *connect.Request[feinov1.GetSessionStateRequest],
-) (*connect.Response[feinov1.SessionStateResponse], error) {
+) (*connect.Response[feinov1.GetSessionStateResponse], error) {
 	state := h.sess.GetCurrentState()
-	return connect.NewResponse(&feinov1.SessionStateResponse{
+	return connect.NewResponse(&feinov1.GetSessionStateResponse{
 		Busy:         false,
 		QueueLength:  0,
 		ReactState:   string(state),
@@ -60,7 +60,7 @@ func (h *FeinoServiceHandler) GetSessionState(
 func (h *FeinoServiceHandler) SendMessage(
 	ctx context.Context,
 	req *connect.Request[feinov1.SendMessageRequest],
-	stream *connect.ServerStream[feinov1.AgentEvent],
+	stream *connect.ServerStream[feinov1.SendMessageResponse],
 ) error {
 	streamID := uuid.New().String()
 	eventCh, cancel := h.sm.Subscribe(streamID)
@@ -350,9 +350,9 @@ func (h *FeinoServiceHandler) ClearBypassMode(
 func (h *FeinoServiceHandler) GetBypassState(
 	_ context.Context,
 	_ *connect.Request[feinov1.GetBypassStateRequest],
-) (*connect.Response[feinov1.BypassStateResponse], error) {
+) (*connect.Response[feinov1.GetBypassStateResponse], error) {
 	active := h.sess.IsBypassActive()
-	return connect.NewResponse(&feinov1.BypassStateResponse{Active: active}), nil
+	return connect.NewResponse(&feinov1.GetBypassStateResponse{Active: active}), nil
 }
 
 // ── Language / Theme RPCs ─────────────────────────────────────────────────────
@@ -395,7 +395,7 @@ func (h *FeinoServiceHandler) SetTheme(
 func (h *FeinoServiceHandler) StreamMetrics(
 	ctx context.Context,
 	_ *connect.Request[feinov1.StreamMetricsRequest],
-	stream *connect.ServerStream[feinov1.MetricsEvent],
+	stream *connect.ServerStream[feinov1.StreamMetricsResponse],
 ) error {
 	subID := uuid.New().String()
 	metricsCh, cancel := h.mhub.Subscribe(subID)

@@ -66,6 +66,7 @@ func (r *Result) ToConfig() *config.Config {
 			CommunicationStyle: r.CommunicationStyle,
 		},
 	}
+	cfg.Defaults()
 
 	switch r.Provider {
 	case "anthropic":

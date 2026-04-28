@@ -12,11 +12,11 @@ import (
 )
 
 // metricsHub listens to the global session event stream and republishes
-// aggregated MetricsEvent values to any registered stream subscribers.
+// aggregated StreamMetricsResponse values to any registered stream subscribers.
 // Each StreamMetrics stream receives its own buffered channel.
 type metricsHub struct {
 	mu   sync.Mutex
-	subs map[string]chan *feinov1.MetricsEvent
+	subs map[string]chan *feinov1.StreamMetricsResponse
 
 	// stateMu guards currentState — session events fire from multiple goroutines.
 	stateMu      sync.Mutex
@@ -25,7 +25,7 @@ type metricsHub struct {
 
 func newMetricsHub(sess *app.Session) *metricsHub {
 	h := &metricsHub{
-		subs: make(map[string]chan *feinov1.MetricsEvent),
+		subs: make(map[string]chan *feinov1.StreamMetricsResponse),
 	}
 
 	sess.Subscribe(func(e app.Event) {
@@ -48,7 +48,7 @@ func newMetricsHub(sess *app.Session) *metricsHub {
 			state := h.currentState
 			h.stateMu.Unlock()
 
-			evt := &feinov1.MetricsEvent{
+			evt := &feinov1.StreamMetricsResponse{
 				Usage: &feinov1.UsageMetadata{
 					PromptTokens:     int32(meta.PromptTokens),
 					CompletionTokens: int32(meta.CompletionTokens),
@@ -65,10 +65,10 @@ func newMetricsHub(sess *app.Session) *metricsHub {
 	return h
 }
 
-// Subscribe registers a MetricsEvent channel for the given ID. The returned
+// Subscribe registers a StreamMetricsResponse channel for the given ID. The returned
 // cancel function removes the subscription.
-func (h *metricsHub) Subscribe(id string) (events <-chan *feinov1.MetricsEvent, unsubscribe func()) {
-	ch := make(chan *feinov1.MetricsEvent, 32)
+func (h *metricsHub) Subscribe(id string) (events <-chan *feinov1.StreamMetricsResponse, unsubscribe func()) {
+	ch := make(chan *feinov1.StreamMetricsResponse, 32)
 	h.mu.Lock()
 	h.subs[id] = ch
 	h.mu.Unlock()
@@ -82,7 +82,7 @@ func (h *metricsHub) Subscribe(id string) (events <-chan *feinov1.MetricsEvent, 
 	return ch, cancel
 }
 
-func (h *metricsHub) broadcast(evt *feinov1.MetricsEvent) {
+func (h *metricsHub) broadcast(evt *feinov1.StreamMetricsResponse) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, ch := range h.subs {

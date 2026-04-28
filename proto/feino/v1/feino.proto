@@ -12,13 +12,13 @@ import "google/protobuf/struct.proto";
 service FeinoService {
   // ── Chat ──────────────────────────────────────────────────────────
   // Send a user message; receive the agent turn as a stream of events.
-  rpc SendMessage(SendMessageRequest) returns (stream AgentEvent);
+  rpc SendMessage(SendMessageRequest) returns (stream SendMessageResponse);
   // Abort the currently in-flight agent turn.
   rpc CancelTurn(CancelTurnRequest) returns (CancelTurnResponse);
   // Unblock a pending permission prompt.
   rpc ResolvePermission(ResolvePermissionRequest) returns (ResolvePermissionResponse);
   // Snapshot of session state.
-  rpc GetSessionState(GetSessionStateRequest) returns (SessionStateResponse);
+  rpc GetSessionState(GetSessionStateRequest) returns (GetSessionStateResponse);
 
   // ── History ────────────────────────────────────────────────────────
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
@@ -36,7 +36,7 @@ service FeinoService {
   rpc DeleteMemory(DeleteMemoryRequest) returns (DeleteMemoryResponse);
 
   // ── Metrics ────────────────────────────────────────────────────────
-  rpc StreamMetrics(StreamMetricsRequest) returns (stream MetricsEvent);
+  rpc StreamMetrics(StreamMetricsRequest) returns (stream StreamMetricsResponse);
 
   // ── Files ──────────────────────────────────────────────────────────
   rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
@@ -51,7 +51,7 @@ service FeinoService {
   // ── Bypass (yolo) mode ─────────────────────────────────────────────
   rpc SetBypassMode(SetBypassModeRequest) returns (SetBypassModeResponse);
   rpc ClearBypassMode(ClearBypassModeRequest) returns (ClearBypassModeResponse);
-  rpc GetBypassState(GetBypassStateRequest) returns (BypassStateResponse);
+  rpc GetBypassState(GetBypassStateRequest) returns (GetBypassStateResponse);
 
   // ── Language / Theme ───────────────────────────────────────────────
   rpc SetLanguage(SetLanguageRequest) returns (SetLanguageResponse);
@@ -82,7 +82,7 @@ message ResolvePermissionRequest {
 message ResolvePermissionResponse {}
 
 message GetSessionStateRequest {}
-message SessionStateResponse {
+message GetSessionStateResponse {
   bool   busy          = 1;
   int32  queue_length  = 2;
   string react_state   = 3;
@@ -93,7 +93,7 @@ message SessionStateResponse {
 // Agent event stream
 // ════════════════════════════════════════════════════════════════════
 
-message AgentEvent {
+message SendMessageResponse {
   oneof event {
     PartReceivedEvent      part_received      = 1;
     ThoughtReceivedEvent   thought_received   = 2;
@@ -326,7 +326,7 @@ message MemoryEntryProto {
 
 message StreamMetricsRequest {}
 
-message MetricsEvent {
+message StreamMetricsResponse {
   UsageMetadata             usage       = 1;
   double                    latency_ms  = 2;
   string                    react_state = 3;
@@ -418,7 +418,7 @@ message ClearBypassModeRequest  {}
 message ClearBypassModeResponse {}
 
 message GetBypassStateRequest {}
-message BypassStateResponse {
+message GetBypassStateResponse {
   bool                      active       = 1;
   bool                      session_long = 2;
   google.protobuf.Timestamp expires_at   = 3;

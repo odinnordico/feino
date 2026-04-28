@@ -491,7 +491,7 @@ New message fade-in: `@keyframes fadeSlideUp { from { opacity:0; transform:trans
 | ----------- | ---------------------------- | ------------------ | ---------------------------------------- |
 | Entry       | `tui.Run(cfg)`               | `repl.Run(sess,…)` | `web.Start(ctx, cfg, addr)`              |
 | Session     | `app.Session`                | `app.Session`      | `app.Session`                            |
-| Events      | `prog.Send(SessionEventMsg)` | blocking loop      | `stream.Send(AgentEvent)`                |
+| Events      | `prog.Send(SessionEventMsg)` | blocking loop      | `stream.Send(SendMessageResponse)`       |
 | Permissions | inline y/n                   | inline y/n         | modal dialog via `ResolvePermission` RPC |
 | Streaming   | Bubble Tea viewport          | line-by-line       | server-stream chunks                     |
 | Config save | `config.Save`                | manual             | `config.Save` via `UpdateConfig` RPC     |
@@ -573,7 +573,7 @@ service FeinoService {
   // The stream stays open until the turn completes (CompleteEvent or
   // ErrorEvent) or the client cancels. The server closes the stream
   // on completion; the client may cancel at any time.
-  rpc SendMessage(SendMessageRequest) returns (stream AgentEvent);
+  rpc SendMessage(SendMessageRequest) returns (stream SendMessageResponse);
 
   // Abort the currently in-flight agent turn.
   rpc CancelTurn(CancelTurnRequest) returns (CancelTurnResponse);
@@ -584,7 +584,7 @@ service FeinoService {
   rpc ResolvePermission(ResolvePermissionRequest) returns (ResolvePermissionResponse);
 
   // Snapshot of session state (busy, queue depth, ReAct state, bypass).
-  rpc GetSessionState(GetSessionStateRequest) returns (SessionStateResponse);
+  rpc GetSessionState(GetSessionStateRequest) returns (GetSessionStateResponse);
 
   // ── History ────────────────────────────────────────────────────────
   rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
@@ -602,8 +602,8 @@ service FeinoService {
   rpc DeleteMemory(DeleteMemoryRequest) returns (DeleteMemoryResponse);
 
   // ── Metrics ────────────────────────────────────────────────────────
-  // Long-lived server stream that pushes a MetricsEvent after each turn.
-  rpc StreamMetrics(StreamMetricsRequest) returns (stream MetricsEvent);
+  // Long-lived server stream that pushes a StreamMetricsResponse after each turn.
+  rpc StreamMetrics(StreamMetricsRequest) returns (stream StreamMetricsResponse);
 
   // ── File uploads ───────────────────────────────────────────────────
   // Upload a file from the browser; get back a server-side token that
@@ -623,7 +623,7 @@ service FeinoService {
   // ── Bypass (yolo) mode ─────────────────────────────────────────────
   rpc SetBypassMode(SetBypassModeRequest) returns (SetBypassModeResponse);
   rpc ClearBypassMode(ClearBypassModeRequest) returns (ClearBypassModeResponse);
-  rpc GetBypassState(GetBypassStateRequest) returns (BypassStateResponse);
+  rpc GetBypassState(GetBypassStateRequest) returns (GetBypassStateResponse);
 
   // ── Language / Theme ───────────────────────────────────────────────
   rpc SetLanguage(SetLanguageRequest) returns (SetLanguageResponse);
@@ -659,7 +659,7 @@ message ResolvePermissionRequest {
 message ResolvePermissionResponse {}
 
 message GetSessionStateRequest {}
-message SessionStateResponse {
+message GetSessionStateResponse {
   bool   busy          = 1;
   int32  queue_length  = 2;
   string react_state   = 3; // "init"|"gather"|"act"|"verify"|"complete"|"failed"
@@ -670,9 +670,9 @@ message SessionStateResponse {
 // Agent event stream
 // ════════════════════════════════════════════════════════════════════
 
-// AgentEvent is the single message type delivered by SendMessage's server
+// SendMessageResponse is the single message type delivered by SendMessage's server
 // stream. One oneof ensures the client can switch on a single field.
-message AgentEvent {
+message SendMessageResponse {
   oneof event {
     PartReceivedEvent      part_received      = 1;
     ThoughtReceivedEvent   thought_received   = 2;
@@ -941,7 +941,7 @@ message MemoryEntryProto {
 
 message StreamMetricsRequest {}
 
-message MetricsEvent {
+message StreamMetricsResponse {
   UsageMetadata             usage       = 1;
   double                    latency_ms  = 2;
   string                    react_state = 3;
@@ -1041,7 +1041,7 @@ message ClearBypassModeRequest  {}
 message ClearBypassModeResponse {}
 
 message GetBypassStateRequest {}
-message BypassStateResponse {
+message GetBypassStateResponse {
   bool                      active       = 1;
   bool                      session_long = 2;
   google.protobuf.Timestamp expires_at   = 3;
@@ -1232,7 +1232,7 @@ Pseudocode:
 func (h *FeinoServiceHandler) SendMessage(
     ctx context.Context,
     req *connect.Request[SendMessageRequest],
-    stream *connect.ServerStream[AgentEvent],
+    stream *connect.ServerStream[SendMessageResponse],
 ) error {
     streamID := uuid.New().String()
     eventCh, cancel := h.sm.Subscribe(streamID)
@@ -1864,7 +1864,7 @@ interface MetricsState {
   tokenHistory: TokenPoint[]; // rolling 10 values {prompt, completion}
   currentUsage: UsageMetadata | null;
 
-  pushMetric: (event: MetricsEvent) => void;
+  pushMetric: (event: StreamMetricsResponse) => void;
 }
 ```
 
@@ -1897,7 +1897,7 @@ interface SessionState {
 
   setTheme: (t: string) => void;
   setLang: (l: string) => void;
-  setBypass: (state: BypassStateResponse) => void;
+  setBypass: (state: GetBypassStateResponse) => void;
   clearBypass: () => void;
   toggleMetrics: () => void;
 }

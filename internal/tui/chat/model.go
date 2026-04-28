@@ -379,6 +379,9 @@ func (m Model) cycleTheme() Model {
 
 // currentModelName returns the default model of the first configured provider.
 func (m Model) currentModelName() string {
+	if m.cfg == nil || m.cfg.Providers == nil {
+		return "no model"
+	}
 	p := m.cfg.Providers
 	switch {
 	case p.Anthropic.APIKey != "" && p.Anthropic.DefaultModel != "":

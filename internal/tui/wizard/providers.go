@@ -92,6 +92,7 @@ func anthropicProvider(res *Result) *wizardProvider {
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "anthropic" }),
 		prefill: func(cfg *config.Config, res *Result) bool {
+			cfg.Defaults()
 			key := cfg.Providers.Anthropic.APIKey
 			if key == "" {
 				key = os.Getenv("ANTHROPIC_API_KEY")
@@ -145,6 +146,7 @@ func openaiProvider(res *Result) *wizardProvider {
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai" }),
 		prefill: func(cfg *config.Config, res *Result) bool {
+			cfg.Defaults()
 			key := cfg.Providers.OpenAI.APIKey
 			if key == "" {
 				key = os.Getenv("OPENAI_API_KEY")
@@ -234,6 +236,7 @@ func geminiProvider(res *Result) *wizardProvider {
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "gemini" }),
 		prefill: func(cfg *config.Config, res *Result) bool {
+			cfg.Defaults()
 			// Vertex AI path.
 			if cfg.Providers.Gemini.Vertex != nil && *cfg.Providers.Gemini.Vertex {
 				res.GeminiVertex = true
@@ -309,6 +312,7 @@ func ollamaProvider(res *Result) *wizardProvider {
 			).WithHideFunc(func() bool { return res.Provider != "ollama" }),
 		},
 		prefill: func(cfg *config.Config, res *Result) bool {
+			cfg.Defaults()
 			if cfg.Providers.Ollama.DefaultModel == "" {
 				return false
 			}
@@ -364,6 +368,7 @@ func openaiCompatProvider(res *Result) *wizardProvider {
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai_compat" }),
 		prefill: func(cfg *config.Config, res *Result) bool {
+			cfg.Defaults()
 			baseURL := cfg.Providers.OpenAICompat.BaseURL
 			if baseURL == "" {
 				baseURL = os.Getenv("OPENAI_COMPAT_BASE_URL")

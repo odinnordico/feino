@@ -2,6 +2,8 @@ module github.com/odinnordico/feino
 
 go 1.26
 
+toolchain go1.26.2
+
 require (
 	connectrpc.com/connect v1.19.2
 	github.com/anthropics/anthropic-sdk-go v1.38.0
@@ -19,7 +21,6 @@ require (
 	github.com/lrstanley/bubblezone v1.0.0
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
-	github.com/ollama/ollama v0.21.2
 	github.com/openai/openai-go v1.12.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/shirou/gopsutil/v4 v4.26.3

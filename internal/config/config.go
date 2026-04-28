@@ -19,6 +19,7 @@ import (
 //
 //go:fix inline
 //go:fix inline
+//go:fix inline
 func BoolPtr(b bool) *bool { return new(b) }
 
 // Config is the top-level application configuration. All fields use zero-value
@@ -32,6 +33,36 @@ type Config struct {
 	UI        *UIConfig          `yaml:"ui"`
 	User      *UserProfileConfig `yaml:"user,omitempty"`
 	Services  *ServicesConfig    `yaml:"services,omitempty"`
+}
+
+// Defaults initialises every nil pointer field in c to its zero-value struct
+// so that downstream code can safely dereference without nil checks. It is
+// idempotent and safe to call multiple times.
+func (c *Config) Defaults() {
+	if c.Providers == nil {
+		c.Providers = &ProvidersConfig{}
+	}
+	if c.Agent == nil {
+		c.Agent = &AgentConfig{}
+	}
+	if c.Security == nil {
+		c.Security = &SecurityConfig{}
+	}
+	if c.Context == nil {
+		c.Context = &ContextConfig{}
+	}
+	if c.MCP == nil {
+		c.MCP = &MCPConfig{}
+	}
+	if c.UI == nil {
+		c.UI = &UIConfig{}
+	}
+	if c.User == nil {
+		c.User = &UserProfileConfig{}
+	}
+	if c.Services == nil {
+		c.Services = &ServicesConfig{}
+	}
 }
 
 // UserProfileConfig holds identity and behavioural preferences for the user.
@@ -278,23 +309,25 @@ func DefaultConfigPath() (string, error) {
 // exist, a zero Config is returned without error — this is the expected
 // first-run case. Unknown YAML keys are rejected to surface typos early.
 func Load(path string) (*Config, error) {
+	cfg := &Config{}
+	cfg.Defaults()
+
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Config{}, nil
+			return cfg, nil
 		}
-		return &Config{}, fmt.Errorf("config: read %s: %w", path, err)
+		return cfg, fmt.Errorf("config: read %s: %w", path, err)
 	}
 	defer func() { _ = f.Close() }()
 
-	cfg := &Config{}
 	dec := yaml.NewDecoder(f)
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil {
 		if errors.Is(err, io.EOF) {
-			return &Config{}, nil // empty file is valid; treat as zero config
+			return cfg, nil // empty file is valid; treat as zero config
 		}
-		return &Config{}, fmt.Errorf("config: parse %s: %w", path, err)
+		return cfg, fmt.Errorf("config: parse %s: %w", path, err)
 	}
 	return cfg, nil
 }
@@ -392,6 +425,9 @@ func mergeServers(b, o []MCPServerConfig) []MCPServerConfig {
 // For []string fields a nil/empty slice means not set.
 // For *bool fields nil means not set; non-nil (true or false) always wins.
 func Merge(base, override *Config) *Config {
+	base.Defaults()
+	override.Defaults()
+
 	return &Config{
 		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{
@@ -514,6 +550,7 @@ func FromEnv() *Config {
 // credential. A Gemini Vertex config without an API key is considered a valid
 // credential when both ProjectID and Location are set.
 func HasCredentials(cfg *Config) bool {
+	cfg.Defaults()
 	p := cfg.Providers
 	if p.Anthropic.APIKey != "" {
 		return true

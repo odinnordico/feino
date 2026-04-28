@@ -55,43 +55,43 @@ CORS headers are added automatically when the bind host is non-loopback (i.e., `
 
 The full service definition is in `gen/feino/v1/feino.proto`. Key methods:
 
-| Method | Type | Description |
-|--------|------|-------------|
-| `GetSessionState` | Unary | Current ReAct state and busy flag |
-| `SendMessage` | Server-streaming | Send a user message; streams `AgentEvent`s as the turn progresses |
-| `CancelTurn` | Unary | Abort in-flight turn |
-| `ResolvePermission` | Unary | Approve or deny a pending tool permission request |
-| `GetHistory` | Unary | Full conversation history as protobuf messages |
-| `ResetSession` | Unary | Clear history and reset state machine |
-| `GetConfig` | Unary | Return current config as protobuf |
-| `UpdateConfig` | Unary | Hot-swap config |
-| `GetCredentials` | Unary | List credential keys for a service |
-| `SetCredentials` | Unary | Store a credential |
-| `ListMemory` | Unary | List or search memory entries |
-| `WriteMemory` | Unary | Create a new memory entry |
-| `UpdateMemory` | Unary | Update an existing entry |
-| `DeleteMemory` | Unary | Delete an entry |
-| `StreamMetrics` | Server-streaming | Live token usage and latency metrics |
+| Method              | Type             | Description                                                                |
+| ------------------- | ---------------- | -------------------------------------------------------------------------- |
+| `GetSessionState`   | Unary            | Current ReAct state and busy flag                                          |
+| `SendMessage`       | Server-streaming | Send a user message; streams `SendMessageResponse`s as the turn progresses |
+| `CancelTurn`        | Unary            | Abort in-flight turn                                                       |
+| `ResolvePermission` | Unary            | Approve or deny a pending tool permission request                          |
+| `GetHistory`        | Unary            | Full conversation history as protobuf messages                             |
+| `ResetSession`      | Unary            | Clear history and reset state machine                                      |
+| `GetConfig`         | Unary            | Return current config as protobuf                                          |
+| `UpdateConfig`      | Unary            | Hot-swap config                                                            |
+| `GetCredentials`    | Unary            | List credential keys for a service                                         |
+| `SetCredentials`    | Unary            | Store a credential                                                         |
+| `ListMemory`        | Unary            | List or search memory entries                                              |
+| `WriteMemory`       | Unary            | Create a new memory entry                                                  |
+| `UpdateMemory`      | Unary            | Update an existing entry                                                   |
+| `DeleteMemory`      | Unary            | Delete an entry                                                            |
+| `StreamMetrics`     | Server-streaming | Live token usage and latency metrics                                       |
 
 ---
 
 ## Key files
 
-| File | Responsibility |
-|------|---------------|
-| `server.go` | HTTP server, h2c, Connect RPC mux, SPA mux |
-| `handler.go` | `FeinoServiceHandler` — all RPC method implementations |
-| `build_session.go` | Construct `app.Session` with all dependencies for the web context |
-| `session_manager.go` | Multiplex events from one session to multiple concurrent SSE clients |
-| `metrics_hub.go` | Aggregate token usage across clients; stream to `StreamMetrics` subscribers |
-| `event_mapper.go` | `app.Event` → `feinov1.AgentEvent` protobuf conversion |
-| `history_mapper.go` | `model.Message` ↔ `feinov1.Message` protobuf conversion |
-| `config_mapper.go` | `config.Config` ↔ `feinov1.Config` protobuf conversion |
-| `file_service.go` | Sandboxed filesystem access for uploads and `@path` resolution |
-| `atref.go` | Expand `@path` tokens in user messages to `<file>…</file>` XML |
-| `spa_handler.go` | Serve embedded React SPA with `index.html` fallback for client-side routing |
-| `embed.go` | `//go:embed dist` — includes the built SPA; only compiled with `-tags web` |
-| `embed_stub.go` | Stub for builds without `-tags web` |
+| File                 | Responsibility                                                              |
+| -------------------- | --------------------------------------------------------------------------- |
+| `server.go`          | HTTP server, h2c, Connect RPC mux, SPA mux                                  |
+| `handler.go`         | `FeinoServiceHandler` — all RPC method implementations                      |
+| `build_session.go`   | Construct `app.Session` with all dependencies for the web context           |
+| `session_manager.go` | Multiplex events from one session to multiple concurrent SSE clients        |
+| `metrics_hub.go`     | Aggregate token usage across clients; stream to `StreamMetrics` subscribers |
+| `event_mapper.go`    | `app.Event` → `feinov1.SendMessageResponse` protobuf conversion             |
+| `history_mapper.go`  | `model.Message` ↔ `feinov1.Message` protobuf conversion                     |
+| `config_mapper.go`   | `config.Config` ↔ `feinov1.Config` protobuf conversion                      |
+| `file_service.go`    | Sandboxed filesystem access for uploads and `@path` resolution              |
+| `atref.go`           | Expand `@path` tokens in user messages to `<file>…</file>` XML              |
+| `spa_handler.go`     | Serve embedded React SPA with `index.html` fallback for client-side routing |
+| `embed.go`           | `//go:embed dist` — includes the built SPA; only compiled with `-tags web`  |
+| `embed_stub.go`      | Stub for builds without `-tags web`                                         |
 
 ---
 
@@ -101,7 +101,7 @@ When the agent's security gate needs user approval, it:
 
 1. Creates a unique request ID (`sessionID:toolName:sequenceNumber`).
 2. Stores a blocking channel in `sessionManager.pendingPermissions`.
-3. Pushes an `AgentEvent` with kind `permission_request` to all connected clients.
+3. Pushes an `SendMessageResponse` with kind `permission_request` to all connected clients.
 4. Blocks until the client calls `ResolvePermission` with the request ID.
 5. The channel receives `true` (approve) or `false` (deny), unblocking the gate.
 
@@ -137,7 +137,7 @@ Without the tag, the server serves a placeholder page. The Vite dev server (port
 
 ## Best practices
 
-- **Stream events immediately.** The `SendMessage` handler flushes each `AgentEvent` as it arrives via `flush()`. Do not buffer events — the user's perceived latency depends on first-token time.
+- **Stream events immediately.** The `SendMessage` handler flushes each `SendMessageResponse` as it arrives via `flush()`. Do not buffer events — the user's perceived latency depends on first-token time.
 - **All proto conversions go through mappers.** Never convert `config.Config` ↔ proto directly in the handler; always use `config_mapper.go`. This keeps the handler thin and the mappings testable.
 - **Permission channels must be closed on session reset.** A stale `pendingPermissions` channel that is never resolved causes the agent goroutine to leak. `ResetSession` drains and closes all pending channels.
 - **`FileService.Close` must be called on server shutdown.** The server's `defer assets.fileSvc.Close()` handles this. Forgetting it leaks temp files.

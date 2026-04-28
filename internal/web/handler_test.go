@@ -184,9 +184,9 @@ func TestSendMessage_StreamsEvents(t *testing.T) {
 	for stream.Receive() {
 		msg := stream.Msg()
 		switch msg.GetEvent().(type) {
-		case *feinov1.AgentEvent_PartReceived:
+		case *feinov1.SendMessageResponse_PartReceived:
 			gotPart = true
-		case *feinov1.AgentEvent_Complete:
+		case *feinov1.SendMessageResponse_Complete:
 			gotComplete = true
 		}
 	}

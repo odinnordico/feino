@@ -862,7 +862,7 @@ The React SPA lives in `internal/web/ui/` and is embedded into the binary at bui
 - `ConfigYamlModal` — live config editor (API keys write-only)
 - `ThemeModal` / `LangModal` — UI preferences
 
-**Event stream** — `SendMessage` is a server-streaming RPC. The client opens a long-lived HTTP/2 stream and receives typed `AgentEvent` messages:
+**Event stream** — `SendMessage` is a server-streaming RPC. The client opens a long-lived HTTP/2 stream and receives typed `SendMessageResponse` messages:
 
 ```
 PartReceivedEvent     → stream token to chat viewport

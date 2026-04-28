@@ -102,13 +102,13 @@ const (
 type FeinoServiceClient interface {
 	// ── Chat ──────────────────────────────────────────────────────────
 	// Send a user message; receive the agent turn as a stream of events.
-	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest]) (*connect.ServerStreamForClient[v1.AgentEvent], error)
+	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest]) (*connect.ServerStreamForClient[v1.SendMessageResponse], error)
 	// Abort the currently in-flight agent turn.
 	CancelTurn(context.Context, *connect.Request[v1.CancelTurnRequest]) (*connect.Response[v1.CancelTurnResponse], error)
 	// Unblock a pending permission prompt.
 	ResolvePermission(context.Context, *connect.Request[v1.ResolvePermissionRequest]) (*connect.Response[v1.ResolvePermissionResponse], error)
 	// Snapshot of session state.
-	GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.SessionStateResponse], error)
+	GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.GetSessionStateResponse], error)
 	// ── History ────────────────────────────────────────────────────────
 	GetHistory(context.Context, *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error)
 	ResetSession(context.Context, *connect.Request[v1.ResetSessionRequest]) (*connect.Response[v1.ResetSessionResponse], error)
@@ -122,7 +122,7 @@ type FeinoServiceClient interface {
 	UpdateMemory(context.Context, *connect.Request[v1.UpdateMemoryRequest]) (*connect.Response[v1.UpdateMemoryResponse], error)
 	DeleteMemory(context.Context, *connect.Request[v1.DeleteMemoryRequest]) (*connect.Response[v1.DeleteMemoryResponse], error)
 	// ── Metrics ────────────────────────────────────────────────────────
-	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.MetricsEvent], error)
+	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.StreamMetricsResponse], error)
 	// ── Files ──────────────────────────────────────────────────────────
 	UploadFile(context.Context, *connect.Request[v1.UploadFileRequest]) (*connect.Response[v1.UploadFileResponse], error)
 	ListFiles(context.Context, *connect.Request[v1.ListFilesRequest]) (*connect.Response[v1.ListFilesResponse], error)
@@ -133,7 +133,7 @@ type FeinoServiceClient interface {
 	// ── Bypass (yolo) mode ─────────────────────────────────────────────
 	SetBypassMode(context.Context, *connect.Request[v1.SetBypassModeRequest]) (*connect.Response[v1.SetBypassModeResponse], error)
 	ClearBypassMode(context.Context, *connect.Request[v1.ClearBypassModeRequest]) (*connect.Response[v1.ClearBypassModeResponse], error)
-	GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.BypassStateResponse], error)
+	GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.GetBypassStateResponse], error)
 	// ── Language / Theme ───────────────────────────────────────────────
 	SetLanguage(context.Context, *connect.Request[v1.SetLanguageRequest]) (*connect.Response[v1.SetLanguageResponse], error)
 	SetTheme(context.Context, *connect.Request[v1.SetThemeRequest]) (*connect.Response[v1.SetThemeResponse], error)
@@ -150,7 +150,7 @@ func NewFeinoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 	baseURL = strings.TrimRight(baseURL, "/")
 	feinoServiceMethods := v1.File_feino_v1_feino_proto.Services().ByName("FeinoService").Methods()
 	return &feinoServiceClient{
-		sendMessage: connect.NewClient[v1.SendMessageRequest, v1.AgentEvent](
+		sendMessage: connect.NewClient[v1.SendMessageRequest, v1.SendMessageResponse](
 			httpClient,
 			baseURL+FeinoServiceSendMessageProcedure,
 			connect.WithSchema(feinoServiceMethods.ByName("SendMessage")),
@@ -168,7 +168,7 @@ func NewFeinoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(feinoServiceMethods.ByName("ResolvePermission")),
 			connect.WithClientOptions(opts...),
 		),
-		getSessionState: connect.NewClient[v1.GetSessionStateRequest, v1.SessionStateResponse](
+		getSessionState: connect.NewClient[v1.GetSessionStateRequest, v1.GetSessionStateResponse](
 			httpClient,
 			baseURL+FeinoServiceGetSessionStateProcedure,
 			connect.WithSchema(feinoServiceMethods.ByName("GetSessionState")),
@@ -228,7 +228,7 @@ func NewFeinoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(feinoServiceMethods.ByName("DeleteMemory")),
 			connect.WithClientOptions(opts...),
 		),
-		streamMetrics: connect.NewClient[v1.StreamMetricsRequest, v1.MetricsEvent](
+		streamMetrics: connect.NewClient[v1.StreamMetricsRequest, v1.StreamMetricsResponse](
 			httpClient,
 			baseURL+FeinoServiceStreamMetricsProcedure,
 			connect.WithSchema(feinoServiceMethods.ByName("StreamMetrics")),
@@ -270,7 +270,7 @@ func NewFeinoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(feinoServiceMethods.ByName("ClearBypassMode")),
 			connect.WithClientOptions(opts...),
 		),
-		getBypassState: connect.NewClient[v1.GetBypassStateRequest, v1.BypassStateResponse](
+		getBypassState: connect.NewClient[v1.GetBypassStateRequest, v1.GetBypassStateResponse](
 			httpClient,
 			baseURL+FeinoServiceGetBypassStateProcedure,
 			connect.WithSchema(feinoServiceMethods.ByName("GetBypassState")),
@@ -293,10 +293,10 @@ func NewFeinoServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // feinoServiceClient implements FeinoServiceClient.
 type feinoServiceClient struct {
-	sendMessage       *connect.Client[v1.SendMessageRequest, v1.AgentEvent]
+	sendMessage       *connect.Client[v1.SendMessageRequest, v1.SendMessageResponse]
 	cancelTurn        *connect.Client[v1.CancelTurnRequest, v1.CancelTurnResponse]
 	resolvePermission *connect.Client[v1.ResolvePermissionRequest, v1.ResolvePermissionResponse]
-	getSessionState   *connect.Client[v1.GetSessionStateRequest, v1.SessionStateResponse]
+	getSessionState   *connect.Client[v1.GetSessionStateRequest, v1.GetSessionStateResponse]
 	getHistory        *connect.Client[v1.GetHistoryRequest, v1.GetHistoryResponse]
 	resetSession      *connect.Client[v1.ResetSessionRequest, v1.ResetSessionResponse]
 	getConfig         *connect.Client[v1.GetConfigRequest, v1.GetConfigResponse]
@@ -306,20 +306,20 @@ type feinoServiceClient struct {
 	writeMemory       *connect.Client[v1.WriteMemoryRequest, v1.WriteMemoryResponse]
 	updateMemory      *connect.Client[v1.UpdateMemoryRequest, v1.UpdateMemoryResponse]
 	deleteMemory      *connect.Client[v1.DeleteMemoryRequest, v1.DeleteMemoryResponse]
-	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.MetricsEvent]
+	streamMetrics     *connect.Client[v1.StreamMetricsRequest, v1.StreamMetricsResponse]
 	uploadFile        *connect.Client[v1.UploadFileRequest, v1.UploadFileResponse]
 	listFiles         *connect.Client[v1.ListFilesRequest, v1.ListFilesResponse]
 	executeCommand    *connect.Client[v1.ExecuteCommandRequest, v1.ExecuteCommandResponse]
 	reloadPlugins     *connect.Client[v1.ReloadPluginsRequest, v1.ReloadPluginsResponse]
 	setBypassMode     *connect.Client[v1.SetBypassModeRequest, v1.SetBypassModeResponse]
 	clearBypassMode   *connect.Client[v1.ClearBypassModeRequest, v1.ClearBypassModeResponse]
-	getBypassState    *connect.Client[v1.GetBypassStateRequest, v1.BypassStateResponse]
+	getBypassState    *connect.Client[v1.GetBypassStateRequest, v1.GetBypassStateResponse]
 	setLanguage       *connect.Client[v1.SetLanguageRequest, v1.SetLanguageResponse]
 	setTheme          *connect.Client[v1.SetThemeRequest, v1.SetThemeResponse]
 }
 
 // SendMessage calls feino.v1.FeinoService.SendMessage.
-func (c *feinoServiceClient) SendMessage(ctx context.Context, req *connect.Request[v1.SendMessageRequest]) (*connect.ServerStreamForClient[v1.AgentEvent], error) {
+func (c *feinoServiceClient) SendMessage(ctx context.Context, req *connect.Request[v1.SendMessageRequest]) (*connect.ServerStreamForClient[v1.SendMessageResponse], error) {
 	return c.sendMessage.CallServerStream(ctx, req)
 }
 
@@ -334,7 +334,7 @@ func (c *feinoServiceClient) ResolvePermission(ctx context.Context, req *connect
 }
 
 // GetSessionState calls feino.v1.FeinoService.GetSessionState.
-func (c *feinoServiceClient) GetSessionState(ctx context.Context, req *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.SessionStateResponse], error) {
+func (c *feinoServiceClient) GetSessionState(ctx context.Context, req *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.GetSessionStateResponse], error) {
 	return c.getSessionState.CallUnary(ctx, req)
 }
 
@@ -384,7 +384,7 @@ func (c *feinoServiceClient) DeleteMemory(ctx context.Context, req *connect.Requ
 }
 
 // StreamMetrics calls feino.v1.FeinoService.StreamMetrics.
-func (c *feinoServiceClient) StreamMetrics(ctx context.Context, req *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.MetricsEvent], error) {
+func (c *feinoServiceClient) StreamMetrics(ctx context.Context, req *connect.Request[v1.StreamMetricsRequest]) (*connect.ServerStreamForClient[v1.StreamMetricsResponse], error) {
 	return c.streamMetrics.CallServerStream(ctx, req)
 }
 
@@ -419,7 +419,7 @@ func (c *feinoServiceClient) ClearBypassMode(ctx context.Context, req *connect.R
 }
 
 // GetBypassState calls feino.v1.FeinoService.GetBypassState.
-func (c *feinoServiceClient) GetBypassState(ctx context.Context, req *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.BypassStateResponse], error) {
+func (c *feinoServiceClient) GetBypassState(ctx context.Context, req *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.GetBypassStateResponse], error) {
 	return c.getBypassState.CallUnary(ctx, req)
 }
 
@@ -437,13 +437,13 @@ func (c *feinoServiceClient) SetTheme(ctx context.Context, req *connect.Request[
 type FeinoServiceHandler interface {
 	// ── Chat ──────────────────────────────────────────────────────────
 	// Send a user message; receive the agent turn as a stream of events.
-	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest], *connect.ServerStream[v1.AgentEvent]) error
+	SendMessage(context.Context, *connect.Request[v1.SendMessageRequest], *connect.ServerStream[v1.SendMessageResponse]) error
 	// Abort the currently in-flight agent turn.
 	CancelTurn(context.Context, *connect.Request[v1.CancelTurnRequest]) (*connect.Response[v1.CancelTurnResponse], error)
 	// Unblock a pending permission prompt.
 	ResolvePermission(context.Context, *connect.Request[v1.ResolvePermissionRequest]) (*connect.Response[v1.ResolvePermissionResponse], error)
 	// Snapshot of session state.
-	GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.SessionStateResponse], error)
+	GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.GetSessionStateResponse], error)
 	// ── History ────────────────────────────────────────────────────────
 	GetHistory(context.Context, *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error)
 	ResetSession(context.Context, *connect.Request[v1.ResetSessionRequest]) (*connect.Response[v1.ResetSessionResponse], error)
@@ -457,7 +457,7 @@ type FeinoServiceHandler interface {
 	UpdateMemory(context.Context, *connect.Request[v1.UpdateMemoryRequest]) (*connect.Response[v1.UpdateMemoryResponse], error)
 	DeleteMemory(context.Context, *connect.Request[v1.DeleteMemoryRequest]) (*connect.Response[v1.DeleteMemoryResponse], error)
 	// ── Metrics ────────────────────────────────────────────────────────
-	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.MetricsEvent]) error
+	StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.StreamMetricsResponse]) error
 	// ── Files ──────────────────────────────────────────────────────────
 	UploadFile(context.Context, *connect.Request[v1.UploadFileRequest]) (*connect.Response[v1.UploadFileResponse], error)
 	ListFiles(context.Context, *connect.Request[v1.ListFilesRequest]) (*connect.Response[v1.ListFilesResponse], error)
@@ -468,7 +468,7 @@ type FeinoServiceHandler interface {
 	// ── Bypass (yolo) mode ─────────────────────────────────────────────
 	SetBypassMode(context.Context, *connect.Request[v1.SetBypassModeRequest]) (*connect.Response[v1.SetBypassModeResponse], error)
 	ClearBypassMode(context.Context, *connect.Request[v1.ClearBypassModeRequest]) (*connect.Response[v1.ClearBypassModeResponse], error)
-	GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.BypassStateResponse], error)
+	GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.GetBypassStateResponse], error)
 	// ── Language / Theme ───────────────────────────────────────────────
 	SetLanguage(context.Context, *connect.Request[v1.SetLanguageRequest]) (*connect.Response[v1.SetLanguageResponse], error)
 	SetTheme(context.Context, *connect.Request[v1.SetThemeRequest]) (*connect.Response[v1.SetThemeResponse], error)
@@ -676,7 +676,7 @@ func NewFeinoServiceHandler(svc FeinoServiceHandler, opts ...connect.HandlerOpti
 // UnimplementedFeinoServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedFeinoServiceHandler struct{}
 
-func (UnimplementedFeinoServiceHandler) SendMessage(context.Context, *connect.Request[v1.SendMessageRequest], *connect.ServerStream[v1.AgentEvent]) error {
+func (UnimplementedFeinoServiceHandler) SendMessage(context.Context, *connect.Request[v1.SendMessageRequest], *connect.ServerStream[v1.SendMessageResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.SendMessage is not implemented"))
 }
 
@@ -688,7 +688,7 @@ func (UnimplementedFeinoServiceHandler) ResolvePermission(context.Context, *conn
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.ResolvePermission is not implemented"))
 }
 
-func (UnimplementedFeinoServiceHandler) GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.SessionStateResponse], error) {
+func (UnimplementedFeinoServiceHandler) GetSessionState(context.Context, *connect.Request[v1.GetSessionStateRequest]) (*connect.Response[v1.GetSessionStateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.GetSessionState is not implemented"))
 }
 
@@ -728,7 +728,7 @@ func (UnimplementedFeinoServiceHandler) DeleteMemory(context.Context, *connect.R
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.DeleteMemory is not implemented"))
 }
 
-func (UnimplementedFeinoServiceHandler) StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.MetricsEvent]) error {
+func (UnimplementedFeinoServiceHandler) StreamMetrics(context.Context, *connect.Request[v1.StreamMetricsRequest], *connect.ServerStream[v1.StreamMetricsResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.StreamMetrics is not implemented"))
 }
 
@@ -756,7 +756,7 @@ func (UnimplementedFeinoServiceHandler) ClearBypassMode(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.ClearBypassMode is not implemented"))
 }
 
-func (UnimplementedFeinoServiceHandler) GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.BypassStateResponse], error) {
+func (UnimplementedFeinoServiceHandler) GetBypassState(context.Context, *connect.Request[v1.GetBypassStateRequest]) (*connect.Response[v1.GetBypassStateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("feino.v1.FeinoService.GetBypassState is not implemented"))
 }
 
