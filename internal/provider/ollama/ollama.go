@@ -45,7 +45,7 @@ func ollamaRetryConfig() provider.RetryConfig {
 	return provider.RetryConfig{
 		MaxRetries:   3,
 		TotalTimeout: 5 * time.Minute,
-		InitialDelay: 2 * time.Second,
+		InitialDelay: 5 * time.Second,
 		MaxDelay:     30 * time.Second,
 	}
 }

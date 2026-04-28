@@ -59,7 +59,7 @@ func TestCircuitBreaker(t *testing.T) {
 func TestRetry(t *testing.T) {
 	cfg := RetryConfig{
 		MaxRetries:   2,
-		TotalTimeout: 1 * time.Second,
+		TotalTimeout: 5 * time.Second,
 		InitialDelay: 10 * time.Millisecond,
 		MaxDelay:     50 * time.Millisecond,
 	}

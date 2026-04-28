@@ -22,7 +22,7 @@ const (
 	ZScoreOutlierThreshold = 2.0
 
 	// DiscoveryTimeout defines the maximum time the router waits for all model listings in parallel.
-	DiscoveryTimeout = 3 * time.Second
+	DiscoveryTimeout = 5 * time.Second
 
 	// DefaultMaxRecommendations defines the default number of candidates returned for fallbacks.
 	DefaultMaxRecommendations = 6

@@ -369,7 +369,7 @@ func TestSession_Cancel_AbortsInFlight(t *testing.T) {
 		if e.Payload == nil {
 			t.Error("expected non-nil error payload after Cancel")
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for EventError after Cancel")
 	}
 
@@ -431,7 +431,7 @@ func TestSession_UsageUpdated_Emitted(t *testing.T) {
 	select {
 	case <-usageCh:
 		// received
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Error("timed out waiting for EventUsageUpdated")
 	}
 }

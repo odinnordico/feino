@@ -77,7 +77,7 @@ type Store interface {
 // The chosen backend is logged at debug level.
 func New(dir string) Store {
 	k := &keyringStore{}
-	if k.available(2 * time.Second) {
+	if k.available(3 * time.Second) {
 		slog.Debug("credentials: using os-keyring backend")
 		return k
 	}

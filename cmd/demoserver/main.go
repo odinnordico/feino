@@ -294,9 +294,9 @@ func main() {
 	srv := &seqServer{responses: demoCorpus(demo)}
 
 	// Start a small delay before starting the server to allow some time for the ollama server to start
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 	netConf := net.ListenConfig{
-		KeepAlive: 1 * time.Second,
+		KeepAlive: 3 * time.Second,
 	}
 
 	ln, err := netConf.Listen(context.Background(), "tcp", "127.0.0.1:0")

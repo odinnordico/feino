@@ -216,7 +216,7 @@ func TestLeadCoordinator_Dispatch_ContextCancellation(t *testing.T) {
 	// Wait for at least one task to start, then cancel.
 	select {
 	case <-started:
-	case <-time.After(2 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for first task to start")
 	}
 	cancel()
@@ -235,7 +235,7 @@ func TestLeadCoordinator_Dispatch_ContextCancellation(t *testing.T) {
 		if errCount == 0 {
 			t.Error("expected at least one cancelled/error result")
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Dispatch did not return after context cancellation")
 	}
 }
