@@ -281,7 +281,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 			case model.ToolResult:
 				// Correctly map Tool Results to Anthropic Tool Result blocks
 				// Handle errors by marking the tool result as a failure
-				resBlock := anthropic.NewToolResultBlock(v.CallID, fmt.Sprintf("%v", v.Content), v.IsError)
+				resBlock := anthropic.NewToolResultBlock(v.CallID, v.Content, v.IsError)
 				blocks = append(blocks, resBlock)
 			default:
 				m.GetLogger().Warn("unsupported message part content type", "type", reflect.TypeOf(v))
@@ -290,7 +290,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 		// System messages are handled separately in the Anthropic API
 		if msg.GetRole() == model.MessageRoleSystem {
-			for _, b := range blocks {
+			for _, b := range blocks { //nolint:gocritic // API response blocks are parsed once per request; copy overhead is negligible
 				if txt := b.GetText(); txt != nil {
 					systemBlocks = append(systemBlocks, anthropic.TextBlockParam{
 						Text: *txt,
@@ -331,7 +331,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Register Tools
 	if len(opts.Tools) > 0 {
-		var anthropicTools []anthropic.ToolUnionParam
+		anthropicTools := make([]anthropic.ToolUnionParam, 0, len(opts.Tools))
 		for _, t := range opts.Tools {
 			var schema anthropic.ToolInputSchemaParam
 			paramsMap := t.GetParameters()
@@ -419,7 +419,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Extract tool_use blocks from the accumulated message. Text blocks were
 	// already emitted as streaming parts above; only tool calls need this pass.
-	for _, block := range acc.Content {
+	for _, block := range acc.Content { //nolint:gocritic // API response content blocks are parsed once per stream; copy overhead is negligible
 		if block.Type == "tool_use" {
 			tc := model.ToolCall{
 				ID:        block.ID,

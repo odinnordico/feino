@@ -402,7 +402,7 @@ func fetchForecast(ctx context.Context, lat, lon float64, units string, days int
 
 // weatherGet performs a GET request via weatherHTTPDoer and returns the body bytes.
 func weatherGet(ctx context.Context, rawURL string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +412,7 @@ func weatherGet(ctx context.Context, rawURL string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	limited := io.LimitReader(resp.Body, 256*1024)
 	body, err := io.ReadAll(limited)

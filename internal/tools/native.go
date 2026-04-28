@@ -8,7 +8,7 @@ import (
 // http, currency, sysinfo, notify, and browser tools. This is the convenience
 // entry point for wiring the full native tool suite into an agent or context manager.
 func NewNativeTools(logger *slog.Logger) []Tool {
-	var all []Tool
+	all := make([]Tool, 0, 11)
 	all = append(all, NewShellTools(logger)...)
 	all = append(all, NewFileTools(logger)...)
 	all = append(all, NewGitTools(logger)...)

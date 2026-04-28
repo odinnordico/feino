@@ -27,7 +27,7 @@ import (
 // Model is the root Bubble Tea model for the feino chat TUI.
 type Model struct {
 	sess   *app.Session
-	cfg    config.Config
+	cfg    *config.Config
 	th     theme.Theme
 	prog   *tea.Program // set via SetProgram after construction
 	zm     *zone.Manager
@@ -78,12 +78,12 @@ type Model struct {
 }
 
 // New constructs the chat Model. Call SetProgram before starting the tea.Program.
-func New(sess *app.Session, cfg config.Config, th theme.Theme, zm *zone.Manager) *Model {
+func New(sess *app.Session, cfg *config.Config, th theme.Theme, zm *zone.Manager) *Model {
 	sp := spinner.New()
 	sp.Style = th.SpinnerStyle
 	sp.Spinner = spinner.Dot
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // cancel is stored in Model.cancel and called on model teardown
 
 	workingDir := cfg.Context.WorkingDir
 	if workingDir == "" {
@@ -132,9 +132,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		var resizeCmd tea.Cmd
-		m, resizeCmd = m.handleResize()
-		return m, resizeCmd
+		m = m.handleResize()
+		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case tea.MouseMsg:
@@ -168,8 +167,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.msgQueue) > 0 {
 			next := m.msgQueue[0]
 			m.msgQueue = m.msgQueue[1:]
-			m, sendCmd := m.sendQueued(next)
-			return m, sendCmd
+			mod, sendCmd := m.sendQueued(next)
+			return mod, sendCmd
 		}
 		return m, nil
 	case StateChangedMsg:
@@ -187,9 +186,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case ThemeToggleMsg:
-		var themeCmd tea.Cmd
-		m, themeCmd = m.cycleTheme()
-		return m, themeCmd
+		m = m.cycleTheme()
+		return m, nil
 	case SetupRequestedMsg:
 		return m.enterSetup()
 	case WizardCompleteMsg:
@@ -347,7 +345,7 @@ func (m Model) rebuildRenderer() Model {
 
 // handleResize returns the updated Model so Bubble Tea stores the new viewport
 // dimensions. Returning only tea.Cmd silently discards mutations on value receivers.
-func (m Model) handleResize() (Model, tea.Cmd) {
+func (m Model) handleResize() Model {
 	mainH := m.mainHeight()
 	m.vp.Width = max(m.width-4, 1)
 	m.vp.Height = max(mainH-2, 1)
@@ -358,11 +356,11 @@ func (m Model) handleResize() (Model, tea.Cmd) {
 	}
 	m.input = m.input.SetWidth(max(m.width-3-pctW, 1))
 
-	return m.rebuildRenderer().rerenderMessages(), nil
+	return m.rebuildRenderer().rerenderMessages()
 }
 
 // cycleTheme advances through the theme rotation: neo → dark → light → auto → neo.
-func (m Model) cycleTheme() (Model, tea.Cmd) {
+func (m Model) cycleTheme() Model {
 	switch m.cfg.UI.Theme {
 	case "neo":
 		m.cfg.UI.Theme = "dark"
@@ -376,7 +374,7 @@ func (m Model) cycleTheme() (Model, tea.Cmd) {
 	m.th = theme.FromConfig(m.cfg.UI.Theme)
 	m.input = m.input.SetTheme(m.th)
 	m.spin.Style = m.th.SpinnerStyle
-	return m.rebuildRenderer().rerenderMessages(), nil
+	return m.rebuildRenderer().rerenderMessages()
 }
 
 // currentModelName returns the default model of the first configured provider.

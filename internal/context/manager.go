@@ -60,7 +60,7 @@ type promptData struct {
 }
 
 // renderPrompt executes the system prompt template against data.
-func renderPrompt(data promptData) (string, error) {
+func renderPrompt(data *promptData) (string, error) {
 	var buf bytes.Buffer
 	if err := systemTmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("context: render prompt template: %w", err)
@@ -262,7 +262,7 @@ func (m *FileSystemContextManager) AssembleContext(ctx context.Context, maxBudge
 		shell = "unknown"
 	}
 
-	data := promptData{
+	data := &promptData{
 		WorkingDir: workingDir,
 		OS:         runtime.GOOS,
 		Arch:       runtime.GOARCH,
@@ -429,21 +429,21 @@ func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
 	tmpName := tmp.Name()
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("context: write temp file: %w", err)
 	}
 	if err := tmp.Chmod(perm); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("context: chmod temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("context: close temp file: %w", err)
 	}
 	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("context: rename temp file: %w", err)
 	}
 	return nil

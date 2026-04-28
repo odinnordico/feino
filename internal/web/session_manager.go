@@ -119,7 +119,7 @@ type permissionRequestPayload struct {
 //
 // Only one stream should be active at a time (the session itself serialises
 // turns). A new Subscribe call replaces the active stream ID.
-func (sm *SessionManager) Subscribe(streamID string) (<-chan app.Event, func()) {
+func (sm *SessionManager) Subscribe(streamID string) (events <-chan app.Event, unsubscribe func()) {
 	ch := make(chan app.Event, 64)
 	sm.streamSubs.Store(streamID, ch)
 	sm.activeStreamID.Store(streamID)

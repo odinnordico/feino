@@ -11,8 +11,8 @@ import (
 
 func newTestModel(workingDir string) *Model {
 	return &Model{
-		cfg: config.Config{
-			Context: config.ContextConfig{WorkingDir: workingDir},
+		cfg: &config.Config{
+			Context: &config.ContextConfig{WorkingDir: workingDir},
 		},
 	}
 }
@@ -20,7 +20,7 @@ func newTestModel(workingDir string) *Model {
 // ── currentModelName ────────────────────────────────────────────────────────
 
 func TestCurrentModelName_AnthropicWithKey(t *testing.T) {
-	m := &Model{cfg: config.Config{Providers: config.ProvidersConfig{
+	m := &Model{cfg: &config.Config{Providers: &config.ProvidersConfig{
 		Anthropic: config.AnthropicConfig{APIKey: "sk-ant-x", DefaultModel: "claude-opus-4-6"},
 		OpenAI:    config.OpenAIConfig{APIKey: "sk-oai-x", DefaultModel: "gpt-4o"},
 	}}}
@@ -31,7 +31,7 @@ func TestCurrentModelName_AnthropicWithKey(t *testing.T) {
 }
 
 func TestCurrentModelName_SkipsUncredentialedProvider(t *testing.T) {
-	m := &Model{cfg: config.Config{Providers: config.ProvidersConfig{
+	m := &Model{cfg: &config.Config{Providers: &config.ProvidersConfig{
 		// Anthropic has a model but no key → should be skipped.
 		Anthropic: config.AnthropicConfig{DefaultModel: "claude-opus-4-6"},
 		OpenAI:    config.OpenAIConfig{APIKey: "sk-oai-x", DefaultModel: "gpt-4o"},
@@ -42,7 +42,7 @@ func TestCurrentModelName_SkipsUncredentialedProvider(t *testing.T) {
 }
 
 func TestCurrentModelName_OllamaNoKey(t *testing.T) {
-	m := &Model{cfg: config.Config{Providers: config.ProvidersConfig{
+	m := &Model{cfg: &config.Config{Providers: &config.ProvidersConfig{
 		Ollama: config.OllamaConfig{DefaultModel: "llama3"},
 	}}}
 	if got := m.currentModelName(); got != "llama3" {

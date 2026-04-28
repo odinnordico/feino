@@ -74,7 +74,7 @@ func NewCurrencyTools(logger *slog.Logger) []Tool {
 func frankfurterGet(ctx context.Context, path string, logger *slog.Logger) ([]frankfurterRate, error) {
 	safeLogger(logger).Debug("frankfurterGet", "url", frankfurterBase+path)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, frankfurterBase+path, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, frankfurterBase+path, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func frankfurterGet(ctx context.Context, path string, logger *slog.Logger) ([]fr
 		log.Error("frankfurterGet: request failed", "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	limited := io.LimitReader(resp.Body, 256*1024)
 	body, err := io.ReadAll(limited)

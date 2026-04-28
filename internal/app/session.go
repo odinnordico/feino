@@ -75,7 +75,7 @@ type EventHandler func(Event)
 // Construct one with New; it is safe for concurrent use after construction.
 type Session struct {
 	mu       sync.RWMutex
-	cfg      config.Config
+	cfg      *config.Config
 	logger   *slog.Logger
 	inFlight atomic.Bool
 
@@ -172,7 +172,7 @@ func WithExtraTools(t ...tools.Tool) SessionOption {
 // New constructs and wires a Session from cfg. Provider credentials are
 // resolved by merging cfg with environment variables (env always wins).
 // Returns an error if no LLM provider can be initialised.
-func New(cfg config.Config, opts ...SessionOption) (*Session, error) {
+func New(cfg *config.Config, opts ...SessionOption) (*Session, error) {
 	// Merge env overrides first so all downstream code sees the final config.
 	cfg = config.Merge(cfg, config.FromEnv())
 
@@ -407,7 +407,7 @@ func (s *Session) GetCurrentState() agent.ReActState {
 }
 
 // Config returns a copy of the active configuration.
-func (s *Session) Config() config.Config {
+func (s *Session) Config() *config.Config {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.cfg
@@ -417,7 +417,7 @@ func (s *Session) Config() config.Config {
 // budget settings take effect on the next Send. Provider credentials and
 // working-directory changes are not hot-swapped — construct a new Session
 // for those.
-func (s *Session) UpdateConfig(cfg config.Config) error {
+func (s *Session) UpdateConfig(cfg *config.Config) error {
 	if s.inFlight.Load() {
 		return ErrBusy
 	}
@@ -785,7 +785,7 @@ func parsePermissionLevel(s string) security.PermissionLevel {
 // buildProviders attempts to construct each configured provider. Those without
 // credentials are silently skipped. Returns an error only when zero providers
 // could be initialised.
-func buildProviders(ctx context.Context, cfg config.ProvidersConfig, logger *slog.Logger) ([]provider.Provider, error) {
+func buildProviders(ctx context.Context, cfg *config.ProvidersConfig, logger *slog.Logger) ([]provider.Provider, error) {
 	var provs []provider.Provider
 
 	// Anthropic — accepts the API key directly.

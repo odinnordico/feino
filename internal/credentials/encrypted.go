@@ -243,16 +243,16 @@ func (s *encryptedStore) save(d storeData) error {
 	}
 
 	nonce := make([]byte, s.gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return fmt.Errorf("credentials: generate nonce: %w", err)
+	if _, readErr := io.ReadFull(rand.Reader, nonce); readErr != nil {
+		return fmt.Errorf("credentials: generate nonce: %w", readErr)
 	}
 
 	ciphertext := s.gcm.Seal(nonce, nonce, plain, nil)
 
 	// Ensure parent directory exists with tight permissions.
 	dir := filepath.Dir(s.path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("credentials: create dir: %w", err)
+	if mkdirErr := os.MkdirAll(dir, 0o700); mkdirErr != nil {
+		return fmt.Errorf("credentials: create dir: %w", mkdirErr)
 	}
 
 	// Atomic write: temp file + rename so a crash never leaves a partial file.

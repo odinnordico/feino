@@ -80,6 +80,10 @@ linters:
           - gocritic
           - unparam
           - unused
+      - path: internal/tui/
+        linters:
+          - gocritic
+        text: "hugeParam"
 
 formatters:
   enable:

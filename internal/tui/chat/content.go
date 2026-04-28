@@ -224,7 +224,7 @@ func (m Model) renderMarkdown(text string) string {
 // content by parsing <thought>...</thought> tags. inThought tracks whether the
 // previous call ended inside an open thought block (tag may span chunks).
 func routeStreamChunk(text string, inThought bool) (workspace, thought string, stillInThought bool) {
-	for len(text) > 0 {
+	for text != "" {
 		if inThought {
 			if idx := strings.Index(text, "</thought>"); idx >= 0 {
 				thought += text[:idx]

@@ -163,12 +163,12 @@ func (r *TACOSRouter) SaveMetrics() {
 	}
 
 	dir := filepath.Dir(r.persistencePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		r.logger.Error("failed to create persistence directory", "dir", dir, "error", err)
 		return
 	}
 
-	if err := os.WriteFile(r.persistencePath, data, 0644); err != nil {
+	if err := os.WriteFile(r.persistencePath, data, 0o600); err != nil {
 		r.logger.Error("failed to save metrics", "path", r.persistencePath, "error", err)
 	}
 }

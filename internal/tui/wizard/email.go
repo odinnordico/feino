@@ -147,7 +147,7 @@ func RunEmailSetup(ctx context.Context, existing config.EmailServiceConfig) (Ema
 
 // SaveEmailSetup persists the result: non-sensitive settings into cfg (in-memory
 // only — the caller must call config.Save), and credentials into the store.
-func SaveEmailSetup(res EmailSetupResult, cfg *config.Config, store credentials.Store) error {
+func SaveEmailSetup(res *EmailSetupResult, cfg *config.Config, store credentials.Store) error {
 	cfg.Services.Email = config.EmailServiceConfig{
 		Enabled:  new(true),
 		Address:  res.Address,

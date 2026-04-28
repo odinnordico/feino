@@ -227,7 +227,7 @@ func literalArgs(call *syntax.CallExpr) []string {
 
 // checkRM reports whether an rm invocation uses recursive+force flags.
 // Both short forms (-r/-R/-f) and GNU long forms (--recursive/--force) are detected.
-func checkRM(args []string) (bool, string) {
+func checkRM(args []string) (dangerous bool, reason string) {
 	var hasRecursive, hasForce bool
 	for _, arg := range args {
 		switch arg {
@@ -257,7 +257,7 @@ func checkRM(args []string) (bool, string) {
 }
 
 // checkDD reports whether a dd invocation writes directly to a block device.
-func checkDD(args []string) (bool, string) {
+func checkDD(args []string) (dangerous bool, reason string) {
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "of=") {
 			val := arg[len("of="):]
@@ -272,7 +272,7 @@ func checkDD(args []string) (bool, string) {
 // checkChmod reports whether a chmod invocation sets world-writable permissions
 // recursively. Detects symbolic modes: 777, a+w, o+w, and bare +w (equivalent
 // to a+w).
-func checkChmod(args []string) (bool, string) {
+func checkChmod(args []string) (dangerous bool, reason string) {
 	var hasRecursive, hasWorldWritable bool
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
@@ -281,13 +281,11 @@ func checkChmod(args []string) (bool, string) {
 					hasRecursive = true
 				}
 			}
-		} else {
-			if arg == "777" ||
-				strings.Contains(arg, "a+w") ||
-				strings.Contains(arg, "o+w") ||
-				arg == "+w" {
-				hasWorldWritable = true
-			}
+		} else if arg == "777" ||
+			strings.Contains(arg, "a+w") ||
+			strings.Contains(arg, "o+w") ||
+			arg == "+w" {
+			hasWorldWritable = true
 		}
 	}
 	if hasRecursive && hasWorldWritable {

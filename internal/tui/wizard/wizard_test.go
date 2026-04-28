@@ -188,8 +188,8 @@ func TestGeminiVertexPrefill(t *testing.T) {
 	var res Result
 	providers := buildProviders(&res)
 
-	cfg := config.Config{
-		Providers: config.ProvidersConfig{
+	cfg := &config.Config{
+		Providers: &config.ProvidersConfig{
 			Gemini: config.GeminiConfig{
 				Vertex:       new(true),
 				ProjectID:    "gcp-proj",
@@ -376,7 +376,7 @@ func TestProviderPrefill_EnvVarFallback(t *testing.T) {
 			providers := buildProviders(&res)
 
 			for _, p := range providers {
-				if p.prefill != nil && p.prefill(config.Config{}, &res) {
+				if p.prefill != nil && p.prefill(&config.Config{}, &res) {
 					if res.Provider == "" {
 						res.Provider = p.id
 					}
@@ -401,8 +401,8 @@ func TestProviderPrefill_ConfigWinsOverEnv(t *testing.T) {
 	var res Result
 	providers := buildProviders(&res)
 
-	cfg := config.Config{
-		Providers: config.ProvidersConfig{
+	cfg := &config.Config{
+		Providers: &config.ProvidersConfig{
 			Anthropic: config.AnthropicConfig{APIKey: "sk-ant-from-file"},
 		},
 	}
@@ -449,7 +449,7 @@ func TestBuildSummary(t *testing.T) {
 		WorkingDir:   "/home/user",
 		Theme:        "dark",
 	}
-	got := buildSummary(res, providers)
+	got := buildSummary(&res, providers)
 	// Should show label ("Anthropic (Claude)"), not raw ID ("anthropic").
 	if contains(got, "Provider:    anthropic\n") {
 		t.Errorf("summary should show provider label, not raw ID:\n%s", got)
@@ -466,20 +466,20 @@ func TestBuildSummary(t *testing.T) {
 
 	// Unknown provider should not panic.
 	res.Provider = "unknown"
-	_ = buildSummary(res, providers)
+	_ = buildSummary(&res, providers)
 }
 
 func TestProviderPrefill(t *testing.T) {
 	tests := []struct {
 		name       string
-		cfg        config.Config
+		cfg        *config.Config
 		wantID     string
 		wantFields func(res Result) bool
 	}{
 		{
 			name: "anthropic prefills key and model",
-			cfg: config.Config{
-				Providers: config.ProvidersConfig{
+			cfg: &config.Config{
+				Providers: &config.ProvidersConfig{
 					Anthropic: config.AnthropicConfig{APIKey: "sk-ant-abc", DefaultModel: "claude-opus-4-6"},
 				},
 			},
@@ -490,8 +490,8 @@ func TestProviderPrefill(t *testing.T) {
 		},
 		{
 			name: "openai prefills key, base url, and model",
-			cfg: config.Config{
-				Providers: config.ProvidersConfig{
+			cfg: &config.Config{
+				Providers: &config.ProvidersConfig{
 					OpenAI: config.OpenAIConfig{APIKey: "sk-oai", BaseURL: "http://proxy", DefaultModel: "gpt-4o"},
 				},
 			},
@@ -502,8 +502,8 @@ func TestProviderPrefill(t *testing.T) {
 		},
 		{
 			name: "gemini prefills key and model",
-			cfg: config.Config{
-				Providers: config.ProvidersConfig{
+			cfg: &config.Config{
+				Providers: &config.ProvidersConfig{
 					Gemini: config.GeminiConfig{APIKey: "gem-key", DefaultModel: "gemini-pro"},
 				},
 			},
@@ -514,8 +514,8 @@ func TestProviderPrefill(t *testing.T) {
 		},
 		{
 			name: "ollama",
-			cfg: config.Config{
-				Providers: config.ProvidersConfig{
+			cfg: &config.Config{
+				Providers: &config.ProvidersConfig{
 					Ollama: config.OllamaConfig{DefaultModel: "llama3", Host: "http://remote:11434"},
 				},
 			},
@@ -524,8 +524,8 @@ func TestProviderPrefill(t *testing.T) {
 		},
 		{
 			name: "openai_compat prefills base url, key, and name",
-			cfg: config.Config{
-				Providers: config.ProvidersConfig{
+			cfg: &config.Config{
+				Providers: &config.ProvidersConfig{
 					OpenAICompat: config.OpenAICompatConfig{
 						BaseURL:      "http://gpu-server:8000/v1",
 						APIKey:       "tok-abc",
@@ -544,7 +544,7 @@ func TestProviderPrefill(t *testing.T) {
 		},
 		{
 			name:   "empty config prefills nothing",
-			cfg:    config.Config{},
+			cfg:    &config.Config{},
 			wantID: "",
 			wantFields: func(r Result) bool {
 				return r.AnthropicKey == "" && r.OpenAIKey == "" && r.GeminiKey == "" &&
@@ -760,7 +760,7 @@ func TestSaveEmailSetup(t *testing.T) {
 		SMTPPort: 587,
 	}
 
-	if err := SaveEmailSetup(res, &cfg, store); err != nil {
+	if err := SaveEmailSetup(&res, &cfg, store); err != nil {
 		t.Fatalf("SaveEmailSetup: unexpected error: %v", err)
 	}
 

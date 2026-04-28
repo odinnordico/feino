@@ -59,8 +59,8 @@ func TestSave_RoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "feino", "config.yaml")
 
-	want := Config{
-		Providers: ProvidersConfig{
+	want := &Config{
+		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{APIKey: "ant-key", DefaultModel: "claude-opus-4-6"},
 			OpenAI:    OpenAIConfig{APIKey: "oai-key", BaseURL: "http://localhost", DefaultModel: "gpt-4o"},
 			Gemini:    GeminiConfig{APIKey: "gem-key", DefaultModel: "gemini-pro"},
@@ -73,23 +73,23 @@ func TestSave_RoundTrip(t *testing.T) {
 				DisableTools: new(true),
 			},
 		},
-		Agent: AgentConfig{
+		Agent: &AgentConfig{
 			MaxRetries:              3,
 			HighComplexityThreshold: 1000,
 			LowComplexityThreshold:  200,
 			MetricsPath:             "/tmp/metrics.json",
 		},
-		Security: SecurityConfig{
+		Security: &SecurityConfig{
 			PermissionLevel:    "write",
 			AllowedPaths:       []string{"/tmp", "/home"},
 			EnableASTBlacklist: new(true),
 		},
-		Context: ContextConfig{
+		Context: &ContextConfig{
 			WorkingDir:       "/workspace",
 			GlobalConfigPath: "/home/.feino/config.md",
 			MaxBudget:        16000,
 		},
-		UI: UIConfig{Theme: "dark", LogLevel: "warn"},
+		UI: &UIConfig{Theme: "dark", LogLevel: "warn"},
 	}
 
 	if err := Save(path, want); err != nil {
@@ -159,7 +159,7 @@ func TestSave_RoundTrip(t *testing.T) {
 
 func TestSave_FilePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := Save(path, Config{}); err != nil {
+	if err := Save(path, &Config{}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	info, err := os.Stat(path)
@@ -174,7 +174,7 @@ func TestSave_FilePermissions(t *testing.T) {
 func TestSave_CreatesParentDirs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "a", "b", "c", "config.yaml")
-	if err := Save(path, Config{}); err != nil {
+	if err := Save(path, &Config{}); err != nil {
 		t.Fatalf("Save should create parent dirs: %v", err)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -183,17 +183,17 @@ func TestSave_CreatesParentDirs(t *testing.T) {
 }
 
 func TestMerge_NonZeroOverrideWins(t *testing.T) {
-	base := Config{
-		Providers: ProvidersConfig{
+	base := &Config{
+		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{APIKey: "base-key", DefaultModel: "base-model"},
 		},
-		Agent: AgentConfig{MaxRetries: 5},
+		Agent: &AgentConfig{MaxRetries: 5},
 	}
-	override := Config{
-		Providers: ProvidersConfig{
+	override := &Config{
+		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{APIKey: "override-key"},
 		},
-		Agent: AgentConfig{MaxRetries: 10},
+		Agent: &AgentConfig{MaxRetries: 10},
 	}
 
 	got := Merge(base, override)
@@ -211,14 +211,14 @@ func TestMerge_NonZeroOverrideWins(t *testing.T) {
 }
 
 func TestMerge_ZeroOverrideKeepsBase(t *testing.T) {
-	base := Config{
-		Security: SecurityConfig{
+	base := &Config{
+		Security: &SecurityConfig{
 			PermissionLevel: "bash",
 			AllowedPaths:    []string{"/tmp"},
 		},
-		Context: ContextConfig{MaxBudget: 8000},
+		Context: &ContextConfig{MaxBudget: 8000},
 	}
-	got := Merge(base, Config{})
+	got := Merge(base, &Config{})
 
 	if got.Security.PermissionLevel != "bash" {
 		t.Errorf("PermissionLevel: got %q, want %q", got.Security.PermissionLevel, "bash")
@@ -232,8 +232,8 @@ func TestMerge_ZeroOverrideKeepsBase(t *testing.T) {
 }
 
 func TestMerge_BoolFlagSetByOverride(t *testing.T) {
-	base := Config{Security: SecurityConfig{EnableASTBlacklist: new(false)}}
-	override := Config{Security: SecurityConfig{EnableASTBlacklist: new(true)}}
+	base := &Config{Security: &SecurityConfig{EnableASTBlacklist: new(false)}}
+	override := &Config{Security: &SecurityConfig{EnableASTBlacklist: new(true)}}
 	got := Merge(base, override)
 	if got.Security.EnableASTBlacklist == nil || !*got.Security.EnableASTBlacklist {
 		t.Error("EnableASTBlacklist: expected true after override")
@@ -241,8 +241,8 @@ func TestMerge_BoolFlagSetByOverride(t *testing.T) {
 }
 
 func TestMerge_BoolFlagCanTurnOff(t *testing.T) {
-	base := Config{Security: SecurityConfig{EnableASTBlacklist: new(true)}}
-	override := Config{Security: SecurityConfig{EnableASTBlacklist: new(false)}}
+	base := &Config{Security: &SecurityConfig{EnableASTBlacklist: new(true)}}
+	override := &Config{Security: &SecurityConfig{EnableASTBlacklist: new(false)}}
 	got := Merge(base, override)
 	if got.Security.EnableASTBlacklist == nil || *got.Security.EnableASTBlacklist {
 		t.Error("EnableASTBlacklist: expected false after override with BoolPtr(false)")
@@ -250,8 +250,8 @@ func TestMerge_BoolFlagCanTurnOff(t *testing.T) {
 }
 
 func TestMerge_BoolFlagNilOverrideKeepsBase(t *testing.T) {
-	base := Config{Security: SecurityConfig{EnableASTBlacklist: new(true)}}
-	got := Merge(base, Config{}) // override has nil EnableASTBlacklist
+	base := &Config{Security: &SecurityConfig{EnableASTBlacklist: new(true)}}
+	got := Merge(base, &Config{}) // override has nil EnableASTBlacklist
 	if got.Security.EnableASTBlacklist == nil || !*got.Security.EnableASTBlacklist {
 		t.Error("EnableASTBlacklist: expected base value (true) when override is nil")
 	}
@@ -343,8 +343,8 @@ func TestParseLogLevel(t *testing.T) {
 
 func TestMerge_GeminiVertex(t *testing.T) {
 	// Turning Vertex on via override.
-	base := Config{}
-	override := Config{Providers: ProvidersConfig{Gemini: GeminiConfig{
+	base := &Config{}
+	override := &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{
 		Vertex:    new(true),
 		ProjectID: "my-proj",
 		Location:  "us-central1",
@@ -358,8 +358,8 @@ func TestMerge_GeminiVertex(t *testing.T) {
 	}
 
 	// Explicitly turning Vertex off via override (switching back to API key).
-	base2 := Config{Providers: ProvidersConfig{Gemini: GeminiConfig{Vertex: new(true), ProjectID: "old-proj"}}}
-	override2 := Config{Providers: ProvidersConfig{Gemini: GeminiConfig{Vertex: new(false), APIKey: "new-key"}}}
+	base2 := &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{Vertex: new(true), ProjectID: "old-proj"}}}
+	override2 := &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{Vertex: new(false), APIKey: "new-key"}}}
 	got2 := Merge(base2, override2)
 	if got2.Providers.Gemini.Vertex == nil || *got2.Providers.Gemini.Vertex {
 		t.Error("Vertex: expected false after explicit false override")
@@ -369,23 +369,23 @@ func TestMerge_GeminiVertex(t *testing.T) {
 	}
 
 	// Nil override keeps base.
-	base3 := Config{Providers: ProvidersConfig{Gemini: GeminiConfig{Vertex: new(true)}}}
-	got3 := Merge(base3, Config{})
+	base3 := &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{Vertex: new(true)}}}
+	got3 := Merge(base3, &Config{})
 	if got3.Providers.Gemini.Vertex == nil || !*got3.Providers.Gemini.Vertex {
 		t.Error("Vertex: expected base value (true) preserved when override is nil")
 	}
 }
 
 func TestMerge_UITheme(t *testing.T) {
-	base := Config{UI: UIConfig{Theme: "dark"}}
-	override := Config{UI: UIConfig{Theme: "light"}}
+	base := &Config{UI: &UIConfig{Theme: "dark"}}
+	override := &Config{UI: &UIConfig{Theme: "light"}}
 	got := Merge(base, override)
 	if got.UI.Theme != "light" {
 		t.Errorf("UI.Theme: got %q, want %q", got.UI.Theme, "light")
 	}
 
 	// Zero override keeps base.
-	got2 := Merge(base, Config{})
+	got2 := Merge(base, &Config{})
 	if got2.UI.Theme != "dark" {
 		t.Errorf("UI.Theme: got %q, want %q (zero override should keep base)", got2.UI.Theme, "dark")
 	}
@@ -393,8 +393,8 @@ func TestMerge_UITheme(t *testing.T) {
 
 func TestMerge_OpenAICompatDisableTools(t *testing.T) {
 	// Setting DisableTools via override.
-	base := Config{}
-	override := Config{Providers: ProvidersConfig{OpenAICompat: OpenAICompatConfig{
+	base := &Config{}
+	override := &Config{Providers: &ProvidersConfig{OpenAICompat: OpenAICompatConfig{
 		BaseURL:      "http://localhost:8000/v1",
 		DisableTools: new(true),
 	}}}
@@ -404,16 +404,16 @@ func TestMerge_OpenAICompatDisableTools(t *testing.T) {
 	}
 
 	// Explicitly disabling with false overrides a true base.
-	base2 := Config{Providers: ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(true)}}}
-	override2 := Config{Providers: ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(false)}}}
+	base2 := &Config{Providers: &ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(true)}}}
+	override2 := &Config{Providers: &ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(false)}}}
 	got2 := Merge(base2, override2)
 	if got2.Providers.OpenAICompat.DisableTools == nil || *got2.Providers.OpenAICompat.DisableTools {
 		t.Error("DisableTools: expected false after explicit false override")
 	}
 
 	// Nil override keeps base.
-	base3 := Config{Providers: ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(true)}}}
-	got3 := Merge(base3, Config{})
+	base3 := &Config{Providers: &ProvidersConfig{OpenAICompat: OpenAICompatConfig{DisableTools: new(true)}}}
+	got3 := Merge(base3, &Config{})
 	if got3.Providers.OpenAICompat.DisableTools == nil || !*got3.Providers.OpenAICompat.DisableTools {
 		t.Error("DisableTools: expected base value (true) preserved when override is nil")
 	}
@@ -421,24 +421,24 @@ func TestMerge_OpenAICompatDisableTools(t *testing.T) {
 
 func TestMerge_EmailEnabled(t *testing.T) {
 	// Setting enabled via override.
-	base := Config{}
-	override := Config{Services: ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
+	base := &Config{}
+	override := &Config{Services: &ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
 	got := Merge(base, override)
 	if got.Services.Email.Enabled == nil || !*got.Services.Email.Enabled {
 		t.Error("Email.Enabled: expected true after override")
 	}
 
 	// Explicitly disabling overrides true base.
-	base2 := Config{Services: ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
-	override2 := Config{Services: ServicesConfig{Email: EmailServiceConfig{Enabled: new(false)}}}
+	base2 := &Config{Services: &ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
+	override2 := &Config{Services: &ServicesConfig{Email: EmailServiceConfig{Enabled: new(false)}}}
 	got2 := Merge(base2, override2)
 	if got2.Services.Email.Enabled == nil || *got2.Services.Email.Enabled {
 		t.Error("Email.Enabled: expected false after explicit false override")
 	}
 
 	// Nil override keeps base.
-	base3 := Config{Services: ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
-	got3 := Merge(base3, Config{})
+	base3 := &Config{Services: &ServicesConfig{Email: EmailServiceConfig{Enabled: new(true)}}}
+	got3 := Merge(base3, &Config{})
 	if got3.Services.Email.Enabled == nil || !*got3.Services.Email.Enabled {
 		t.Error("Email.Enabled: expected base value (true) preserved when override is nil")
 	}
@@ -447,32 +447,32 @@ func TestMerge_EmailEnabled(t *testing.T) {
 func TestHasCredentials(t *testing.T) {
 	tests := []struct {
 		name string
-		cfg  Config
+		cfg  *Config
 		want bool
 	}{
 		{
 			name: "empty config has no credentials",
-			cfg:  Config{},
+			cfg:  &Config{},
 			want: false,
 		},
 		{
 			name: "anthropic API key",
-			cfg:  Config{Providers: ProvidersConfig{Anthropic: AnthropicConfig{APIKey: "sk-ant"}}},
+			cfg:  &Config{Providers: &ProvidersConfig{Anthropic: AnthropicConfig{APIKey: "sk-ant"}}},
 			want: true,
 		},
 		{
 			name: "openai API key",
-			cfg:  Config{Providers: ProvidersConfig{OpenAI: OpenAIConfig{APIKey: "sk-oai"}}},
+			cfg:  &Config{Providers: &ProvidersConfig{OpenAI: OpenAIConfig{APIKey: "sk-oai"}}},
 			want: true,
 		},
 		{
 			name: "gemini API key",
-			cfg:  Config{Providers: ProvidersConfig{Gemini: GeminiConfig{APIKey: "gem-key"}}},
+			cfg:  &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{APIKey: "gem-key"}}},
 			want: true,
 		},
 		{
 			name: "gemini vertex complete",
-			cfg: Config{Providers: ProvidersConfig{Gemini: GeminiConfig{
+			cfg: &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{
 				Vertex:    new(true),
 				ProjectID: "my-project",
 				Location:  "us-central1",
@@ -481,7 +481,7 @@ func TestHasCredentials(t *testing.T) {
 		},
 		{
 			name: "gemini vertex missing project — not enough",
-			cfg: Config{Providers: ProvidersConfig{Gemini: GeminiConfig{
+			cfg: &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{
 				Vertex:   new(true),
 				Location: "us-central1",
 			}}},
@@ -489,7 +489,7 @@ func TestHasCredentials(t *testing.T) {
 		},
 		{
 			name: "gemini vertex missing location — not enough",
-			cfg: Config{Providers: ProvidersConfig{Gemini: GeminiConfig{
+			cfg: &Config{Providers: &ProvidersConfig{Gemini: GeminiConfig{
 				Vertex:    new(true),
 				ProjectID: "my-project",
 			}}},
@@ -497,12 +497,12 @@ func TestHasCredentials(t *testing.T) {
 		},
 		{
 			name: "ollama default model set",
-			cfg:  Config{Providers: ProvidersConfig{Ollama: OllamaConfig{DefaultModel: "llama3"}}},
+			cfg:  &Config{Providers: &ProvidersConfig{Ollama: OllamaConfig{DefaultModel: "llama3"}}},
 			want: true,
 		},
 		{
 			name: "openai_compat base url set",
-			cfg:  Config{Providers: ProvidersConfig{OpenAICompat: OpenAICompatConfig{BaseURL: "http://localhost:8000/v1"}}},
+			cfg:  &Config{Providers: &ProvidersConfig{OpenAICompat: OpenAICompatConfig{BaseURL: "http://localhost:8000/v1"}}},
 			want: true,
 		},
 	}

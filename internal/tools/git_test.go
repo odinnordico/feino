@@ -1,12 +1,14 @@
 package tools
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // initGitRepo creates a temporary git repository with one initial commit.
@@ -14,24 +16,27 @@ func initGitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 
-	mustGit := func(args ...string) {
+	mustGit := func(ctx context.Context, args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.CommandContext(ctx, "git", args...)
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
 
-	mustGit("init")
-	mustGit("config", "user.email", "test@feino.test")
-	mustGit("config", "user.name", "Feino Test")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	mustGit(ctx, "init")
+	mustGit(ctx, "config", "user.email", "test@feino.test")
+	mustGit(ctx, "config", "user.name", "Feino Test")
 
 	if err := os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package main\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	mustGit("add", ".")
-	mustGit("commit", "-m", "init")
+	mustGit(ctx, "add", ".")
+	mustGit(ctx, "commit", "-m", "init")
 
 	return dir
 }
@@ -124,7 +129,9 @@ func TestGitDiff(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "hello.go"), []byte("package main\n// changed\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		cmd := exec.Command("git", "add", ".")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "git", "add", ".")
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git add: %v\n%s", err, out)

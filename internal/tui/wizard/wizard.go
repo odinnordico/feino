@@ -19,7 +19,7 @@ import (
 // All steps run inside a single huh.Form (one bubbletea program). Credential
 // groups are conditionally shown via WithHideFunc, so Shift+Tab back-navigation
 // works across all steps without any terminal-state glitches.
-func Run(ctx context.Context, existing config.Config) (Result, error) {
+func Run(ctx context.Context, existing *config.Config) (Result, error) {
 	var res Result
 	res.Theme = "neo"
 	res.WorkingDir = defaultWorkingDir()
@@ -60,7 +60,8 @@ func Run(ctx context.Context, existing config.Config) (Result, error) {
 	var confirmed bool
 
 	// Build the complete group list: intro + credentials + model steps + shared steps + confirm.
-	groups := []*huh.Group{
+	groups := make([]*huh.Group, 0, 1+len(credGroups)+len(extraModelGroups)+4)
+	groups = append(groups,
 		// Step 1: provider selection.
 		huh.NewGroup(
 			huh.NewNote().
@@ -71,8 +72,7 @@ func Run(ctx context.Context, existing config.Config) (Result, error) {
 				Description(i18n.T("wizard_provider_desc")).
 				Options(providerOpts...).
 				Value(&res.Provider),
-		),
-	}
+		))
 	groups = append(groups, credGroups...)
 	groups = append(groups, extraModelGroups...)
 	groups = append(groups,
@@ -132,7 +132,7 @@ func Run(ctx context.Context, existing config.Config) (Result, error) {
 			huh.NewNote().
 				Title(i18n.T("wizard_summary_title")).
 				DescriptionFunc(func() string {
-					return buildSummary(res, providers)
+					return buildSummary(&res, providers)
 				}, &res),
 			huh.NewConfirm().
 				Title(i18n.T("wizard_save_title")).
@@ -168,7 +168,7 @@ func Run(ctx context.Context, existing config.Config) (Result, error) {
 
 // buildSummary produces the human-readable configuration summary shown at the
 // confirmation step. The credential section is delegated to the active provider.
-func buildSummary(res Result, providers []*wizardProvider) string {
+func buildSummary(res *Result, providers []*wizardProvider) string {
 	providerLabel := res.Provider
 	credLine := ""
 	for _, p := range providers {

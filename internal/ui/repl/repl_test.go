@@ -73,7 +73,7 @@ func (p *replStubProvider) GetModels(_ context.Context) ([]model.Model, error) {
 func newReplSession(t *testing.T, text string) *app.Session {
 	t.Helper()
 	sess, err := app.New(
-		config.Config{},
+		&config.Config{},
 		app.WithLogger(slog.Default()),
 		app.WithProviders(newReplProvider(text)),
 	)

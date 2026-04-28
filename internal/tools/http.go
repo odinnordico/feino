@@ -161,22 +161,26 @@ func newHTTPRequestTool(logger *slog.Logger) Tool {
 			}
 
 			// Apply caller-supplied headers (may override Content-Type / User-Agent).
-			if hdrs, err := extractStringMap(params, "headers"); err == nil {
+			if hdrs, hdrErr := extractStringMap(params, "headers"); hdrErr == nil {
 				for k, v := range hdrs {
 					req.Header.Set(k, v)
 				}
 			}
 
 			// ── choose client ─────────────────────────────────────────────────
+			//nolint:bodyclose // false positive because the linter doesn't trace interface returns properly, closed below
 			client := doerToClient(httpDoer, followRedirects)
 
 			start := time.Now()
 			resp, err := client.Do(req)
-			elapsed := time.Since(start)
 			if err != nil {
+				if resp != nil && resp.Body != nil {
+					_ = resp.Body.Close()
+				}
 				return NewToolResult("", fmt.Errorf("http_request: %w", err))
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
+			elapsed := time.Since(start)
 
 			// ── read response body ────────────────────────────────────────────
 			limitBytes := int64(maxKB) * 1024

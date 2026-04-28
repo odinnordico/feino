@@ -158,7 +158,7 @@ func (m *ModelMetrics) windowStats() (arithmeticMean, stddev float64) {
 
 // Stats returns the EWMA (used for TACOS scoring) and the sample standard
 // deviation of the rolling window (used for outlier detection).
-func (m *ModelMetrics) Stats() (mean float64, stddev float64) {
+func (m *ModelMetrics) Stats() (mean, stddev float64) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -171,7 +171,7 @@ func (m *ModelMetrics) Stats() (mean float64, stddev float64) {
 
 // IsOutlier checks whether currentLpt exceeds the Z-score threshold relative
 // to the window's arithmetic mean and sample standard deviation.
-func (m *ModelMetrics) IsOutlier(currentLpt float64, zScoreThreshold float64) bool {
+func (m *ModelMetrics) IsOutlier(currentLpt, zScoreThreshold float64) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

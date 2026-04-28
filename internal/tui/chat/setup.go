@@ -24,7 +24,7 @@ func (m Model) enterEmailSetup() (tea.Model, tea.Cmd) {
 			}
 			// Save credentials immediately — the store is safe to call from any goroutine.
 			if store != nil {
-				if saveErr := wizard.SaveEmailSetup(res, &currentCfg, store); saveErr != nil {
+				if saveErr := wizard.SaveEmailSetup(&res, currentCfg, store); saveErr != nil {
 					return ErrorMsg{Err: saveErr}
 				}
 			}

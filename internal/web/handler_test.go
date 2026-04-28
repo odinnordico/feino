@@ -99,7 +99,7 @@ func (p *testProvider) GetModels(_ context.Context) ([]model.Model, error) {
 func newTestHandler(t *testing.T, prov *testProvider) *FeinoServiceHandler {
 	t.Helper()
 	sess, err := app.New(
-		config.Config{},
+		&config.Config{},
 		app.WithLogger(slog.Default()),
 		app.WithProviders(prov),
 	)
@@ -117,7 +117,7 @@ func newTestHandler(t *testing.T, prov *testProvider) *FeinoServiceHandler {
 		sm:      sm,
 		mhub:    mhub,
 		fileSvc: fileSvc,
-		cfg:     config.Config{},
+		cfg:     &config.Config{},
 		cfgPath: "",
 	}
 }
@@ -282,7 +282,7 @@ func TestSessionManager_Subscribe(t *testing.T) {
 	close(prov.mdl.block)
 
 	sess, err := app.New(
-		config.Config{},
+		&config.Config{},
 		app.WithLogger(slog.Default()),
 		app.WithProviders(prov),
 	)
@@ -356,8 +356,8 @@ func TestGetHistory_AfterSend(t *testing.T) {
 	}
 	for stream.Receive() {
 	}
-	if err := stream.Err(); err != nil {
-		t.Fatalf("stream: %v", err)
+	if strErr := stream.Err(); strErr != nil {
+		t.Fatalf("stream: %v", strErr)
 	}
 
 	resp, err := client.GetHistory(context.Background(), connect.NewRequest(&feinov1.GetHistoryRequest{}))

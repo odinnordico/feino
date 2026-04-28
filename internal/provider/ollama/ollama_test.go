@@ -15,8 +15,8 @@ import (
 )
 
 // newTestProvider creates a Provider wired to the given httptest server URL,
-// bypassing the ollama binary check entirely.
-func newTestProvider(t *testing.T, serverURL string) *Provider {
+// bypassing the ollama binary check entirely and sets up the client.
+func newTestProvider(ctx context.Context, t *testing.T, serverURL string) *Provider {
 	t.Helper()
 	p := &Provider{
 		logger:         slog.Default(),
@@ -25,7 +25,7 @@ func newTestProvider(t *testing.T, serverURL string) *Provider {
 		baseURL:        serverURL,
 		isTesting:      true,
 	}
-	client, err := p.createAndEnsureClient()
+	client, err := p.createAndEnsureClient(ctx)
 	if err != nil {
 		t.Fatalf("createAndEnsureClient failed: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestOllamaProvider_GetModels(t *testing.T) {
 	defer server.Close()
 
 	ctx := context.Background()
-	p := newTestProvider(t, server.URL)
+	p := newTestProvider(ctx, t, server.URL)
 
 	models, err := p.GetModels(ctx)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestOllamaModel_Infer(t *testing.T) {
 	defer server.Close()
 
 	ctx := context.Background()
-	p := newTestProvider(t, server.URL)
+	p := newTestProvider(ctx, t, server.URL)
 
 	m := &Model{
 		id:       "llama3",

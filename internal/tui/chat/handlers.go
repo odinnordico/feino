@@ -159,7 +159,7 @@ func (m Model) submitInput() (tea.Model, tea.Cmd) {
 	case "/profile":
 		return m.appendProfile(), nil
 	case "/reset":
-		m.sess.Reset()
+		_ = m.sess.Reset()
 		m.messages = nil
 		m.renderedContent = ""
 		m.msgQueue = nil

@@ -223,9 +223,8 @@ func (m Model) activateTheme(idx int) (tea.Model, tea.Cmd) {
 	}
 
 	m = m.appendInfoText(i18n.Tf("theme_changed", map[string]any{"Theme": i18n.T(chosen.msgID)}))
-	var resizeCmd tea.Cmd
-	m, resizeCmd = m.handleResize()
-	return m, resizeCmd
+	m = m.handleResize()
+	return m, nil
 }
 
 // renderThemePickerRow renders the /theme selection widget.

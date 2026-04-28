@@ -29,7 +29,7 @@ func newVectorIndex(records []Record) *vectorIndex {
 // findBestMatch returns the Record whose TF vector has the highest cosine
 // similarity to query, along with the similarity score (0..1).
 // Returns a zero Record and 0.0 if the index is somehow empty.
-func (idx *vectorIndex) findBestMatch(query string) (Record, float64) {
+func (idx *vectorIndex) findBestMatch(query string) (best Record, score float64) {
 	if len(idx.records) == 0 {
 		return Record{}, 0
 	}

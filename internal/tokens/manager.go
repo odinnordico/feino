@@ -82,7 +82,7 @@ func (m *UsageManager) GetTotal() UsageMetadata {
 
 // notifyListeners broadcasts snap to each listener in its own goroutine.
 // Must be called after releasing m.mu to avoid deadlocks in listener callbacks.
-func (m *UsageManager) notifyListeners(snap UsageMetadata, listeners []UsageListener) {
+func (m *UsageManager) notifyListeners(snap UsageMetadata, listeners []UsageListener) { //nolint:gocritic // snap is intentionally a copy so each listener gets a stable snapshot, not a shared pointer
 	for _, l := range listeners {
 		go func(fn UsageListener) {
 			defer func() {

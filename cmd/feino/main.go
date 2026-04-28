@@ -54,7 +54,7 @@ func main() {
 		}
 		if err := web.Start(ctx, cfg, opts); err != nil && !isCancelled(err) {
 			slog.Error("web server error", "error", err)
-			os.Exit(1)
+			os.Exit(1) //nolint:gocritic // stop() is a signal handler; skipping it on os.Exit is acceptable as the process is terminating
 		}
 		return
 	}

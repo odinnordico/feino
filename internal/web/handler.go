@@ -30,7 +30,7 @@ type FeinoServiceHandler struct {
 	fileSvc *fileService
 	store   credentials.Store
 	mem     *memory.FileStore
-	cfg     config.Config
+	cfg     *config.Config
 	cfgPath string
 }
 
@@ -133,7 +133,7 @@ func (h *FeinoServiceHandler) ResetSession(
 	_ context.Context,
 	_ *connect.Request[feinov1.ResetSessionRequest],
 ) (*connect.Response[feinov1.ResetSessionResponse], error) {
-	h.sess.Reset()
+	_ = h.sess.Reset()
 	return connect.NewResponse(&feinov1.ResetSessionResponse{}), nil
 }
 
@@ -214,7 +214,7 @@ func (h *FeinoServiceHandler) ListMemories(
 
 	protos := make([]*feinov1.MemoryEntryProto, len(entries))
 	for i, e := range entries {
-		protos[i] = memoryEntryToProto(e)
+		protos[i] = memoryEntryToProto(&e)
 	}
 	return connect.NewResponse(&feinov1.ListMemoriesResponse{Entries: protos}), nil
 }
@@ -231,7 +231,7 @@ func (h *FeinoServiceHandler) WriteMemory(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
-	return connect.NewResponse(&feinov1.WriteMemoryResponse{Entry: memoryEntryToProto(e)}), nil
+	return connect.NewResponse(&feinov1.WriteMemoryResponse{Entry: memoryEntryToProto(&e)}), nil
 }
 
 // UpdateMemory replaces the content of an existing memory entry.
@@ -246,7 +246,7 @@ func (h *FeinoServiceHandler) UpdateMemory(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
-	return connect.NewResponse(&feinov1.UpdateMemoryResponse{Entry: memoryEntryToProto(e)}), nil
+	return connect.NewResponse(&feinov1.UpdateMemoryResponse{Entry: memoryEntryToProto(&e)}), nil
 }
 
 // DeleteMemory removes a memory entry by ID.
@@ -264,7 +264,7 @@ func (h *FeinoServiceHandler) DeleteMemory(
 }
 
 // memoryEntryToProto converts a memory.Entry to its proto representation.
-func memoryEntryToProto(e memory.Entry) *feinov1.MemoryEntryProto {
+func memoryEntryToProto(e *memory.Entry) *feinov1.MemoryEntryProto {
 	return &feinov1.MemoryEntryProto{
 		Id:        e.ID,
 		Category:  string(e.Category),
@@ -327,7 +327,7 @@ func (h *FeinoServiceHandler) SetBypassMode(
 ) (*connect.Response[feinov1.SetBypassModeResponse], error) {
 	var until time.Time
 	if req.Msg.GetSessionLong() {
-		until = time.Time{} // zero = session-long
+		until = time.Time{} // time.Time zero value means session-long
 	} else if d := req.Msg.GetDurationSec(); d > 0 {
 		until = time.Now().Add(time.Duration(d) * time.Second)
 	} else {

@@ -27,7 +27,7 @@ type Options struct {
 
 // Start builds a session, registers the Connect RPC handler, mounts the
 // embedded React SPA, then serves until ctx is cancelled.
-func Start(ctx context.Context, cfg config.Config, opts Options) error {
+func Start(ctx context.Context, cfg *config.Config, opts Options) error {
 	if opts.Host == "" {
 		opts.Host = "127.0.0.1"
 	}
@@ -69,12 +69,13 @@ func Start(ctx context.Context, cfg config.Config, opts Options) error {
 
 	// ── h2c (HTTP/2 cleartext) ────────────────────────────────────────────────
 	srv := &http.Server{
-		Addr:    net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port)),
-		Handler: h2c.NewHandler(mux, &http2.Server{}),
+		Addr:              net.JoinHostPort(opts.Host, strconv.Itoa(opts.Port)),
+		Handler:           h2c.NewHandler(mux, &http2.Server{}),
+		ReadHeaderTimeout: 30 * time.Second,
 	}
 
 	// Shutdown when the context is cancelled.
-	go func() {
+	go func() { //nolint:gosec // G118: context.Background used intentionally for shutdown timeout; cancel is deferred immediately below
 		<-ctx.Done()
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

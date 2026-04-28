@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/odinnordico/feino/internal/model"
 	"github.com/pkoukk/tiktoken-go"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/odinnordico/feino/internal/model"
 )
 
 // Estimator defines the interface for token estimation
@@ -88,7 +89,7 @@ func (e *TiktokenEstimator) getEncoding(modelName string) (*tiktoken.Tiktoken, e
 }
 
 // EstimateString calculates the tokens for a standard string payload.
-func (e *TiktokenEstimator) EstimateString(text string, modelName string) (int, error) {
+func (e *TiktokenEstimator) EstimateString(text, modelName string) (int, error) {
 	tkm, err := e.getEncoding(modelName)
 	if err != nil {
 		return 0, err

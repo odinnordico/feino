@@ -78,7 +78,7 @@ func TestEstimatorMessage(t *testing.T) {
 func TestEstimatorMessages(t *testing.T) {
 	est := NewEstimator(slog.Default(), WithChatMLOverheads(4, 3))
 
-	msgs := []model.Message{}
+	msgs := make([]model.Message, 0, 3)
 	for range 3 {
 		ll := &structs.LinkedList[model.MessagePart]{}
 		ll.PushBack(&mockMessagePart{content: "Another test string."})

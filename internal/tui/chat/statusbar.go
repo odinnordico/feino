@@ -99,7 +99,7 @@ func renderStatusBar(width int, data StatusBarData, th theme.Theme) string {
 // renderInputRow renders the bottom single-line input area:
 //
 //	>> [input field]                              100%
-func renderInputRow(width int, spinView string, inputView string, tokenPct int, th theme.Theme) string {
+func renderInputRow(width int, spinView, inputView string, tokenPct int, th theme.Theme) string {
 	prompt := lipgloss.NewStyle().
 		Foreground(th.Primary).
 		Bold(true).

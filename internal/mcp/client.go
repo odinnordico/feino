@@ -114,7 +114,7 @@ func (c *Client) ConnectStdio(ctx context.Context, cfg StdioClientConfig) (*Sess
 		return nil, fmt.Errorf("mcp stdio: Command must not be empty")
 	}
 
-	cmd := exec.Command(cfg.Command, cfg.Args...)
+	cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...) //nolint:gosec // MCP server command and args are user-configured; this is intentional by design
 	cmd.Env = append(os.Environ(), cfg.Env...)
 
 	t := &sdkmcp.CommandTransport{

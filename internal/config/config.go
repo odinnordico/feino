@@ -24,14 +24,14 @@ func BoolPtr(b bool) *bool { return new(b) }
 // Config is the top-level application configuration. All fields use zero-value
 // defaults so callers may construct Config{} and override only what they need.
 type Config struct {
-	Providers ProvidersConfig   `yaml:"providers"`
-	Agent     AgentConfig       `yaml:"agent"`
-	Security  SecurityConfig    `yaml:"security"`
-	Context   ContextConfig     `yaml:"context"`
-	MCP       MCPConfig         `yaml:"mcp"`
-	UI        UIConfig          `yaml:"ui"`
-	User      UserProfileConfig `yaml:"user,omitempty"`
-	Services  ServicesConfig    `yaml:"services,omitempty"`
+	Providers *ProvidersConfig   `yaml:"providers"`
+	Agent     *AgentConfig       `yaml:"agent"`
+	Security  *SecurityConfig    `yaml:"security"`
+	Context   *ContextConfig     `yaml:"context"`
+	MCP       *MCPConfig         `yaml:"mcp"`
+	UI        *UIConfig          `yaml:"ui"`
+	User      *UserProfileConfig `yaml:"user,omitempty"`
+	Services  *ServicesConfig    `yaml:"services,omitempty"`
 }
 
 // UserProfileConfig holds identity and behavioural preferences for the user.
@@ -277,24 +277,24 @@ func DefaultConfigPath() (string, error) {
 // Load reads and parses a YAML config file from path. If the file does not
 // exist, a zero Config is returned without error — this is the expected
 // first-run case. Unknown YAML keys are rejected to surface typos early.
-func Load(path string) (Config, error) {
+func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return Config{}, nil
+			return &Config{}, nil
 		}
-		return Config{}, fmt.Errorf("config: read %s: %w", path, err)
+		return &Config{}, fmt.Errorf("config: read %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
-	var cfg Config
+	cfg := &Config{}
 	dec := yaml.NewDecoder(f)
 	dec.KnownFields(true)
-	if err := dec.Decode(&cfg); err != nil {
+	if err := dec.Decode(cfg); err != nil {
 		if errors.Is(err, io.EOF) {
-			return Config{}, nil // empty file is valid; treat as zero config
+			return &Config{}, nil // empty file is valid; treat as zero config
 		}
-		return Config{}, fmt.Errorf("config: parse %s: %w", path, err)
+		return &Config{}, fmt.Errorf("config: parse %s: %w", path, err)
 	}
 	return cfg, nil
 }
@@ -304,7 +304,7 @@ func Load(path string) (Config, error) {
 // keys. Atomicity is achieved by writing to a temporary file in the same
 // directory and then renaming it, so a crash mid-write never corrupts the
 // existing config.
-func Save(path string, cfg Config) error {
+func Save(path string, cfg *Config) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("config: create dir for %s: %w", path, err)
@@ -391,9 +391,9 @@ func mergeServers(b, o []MCPServerConfig) []MCPServerConfig {
 // For int fields the zero value is 0 (not set).
 // For []string fields a nil/empty slice means not set.
 // For *bool fields nil means not set; non-nil (true or false) always wins.
-func Merge(base, override Config) Config {
-	return Config{
-		Providers: ProvidersConfig{
+func Merge(base, override *Config) *Config {
+	return &Config{
+		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{
 				APIKey:       mergeStr(base.Providers.Anthropic.APIKey, override.Providers.Anthropic.APIKey),
 				DefaultModel: mergeStr(base.Providers.Anthropic.DefaultModel, override.Providers.Anthropic.DefaultModel),
@@ -422,37 +422,37 @@ func Merge(base, override Config) Config {
 				DisableTools: mergeBoolPtr(base.Providers.OpenAICompat.DisableTools, override.Providers.OpenAICompat.DisableTools),
 			},
 		},
-		Agent: AgentConfig{
+		Agent: &AgentConfig{
 			MaxRetries:              mergeNum(base.Agent.MaxRetries, override.Agent.MaxRetries),
 			HighComplexityThreshold: mergeNum(base.Agent.HighComplexityThreshold, override.Agent.HighComplexityThreshold),
 			LowComplexityThreshold:  mergeNum(base.Agent.LowComplexityThreshold, override.Agent.LowComplexityThreshold),
 			MetricsPath:             mergeStr(base.Agent.MetricsPath, override.Agent.MetricsPath),
 		},
-		Security: SecurityConfig{
+		Security: &SecurityConfig{
 			PermissionLevel:    mergeStr(base.Security.PermissionLevel, override.Security.PermissionLevel),
 			AllowedPaths:       mergeStrs(base.Security.AllowedPaths, override.Security.AllowedPaths),
 			EnableASTBlacklist: mergeBoolPtr(base.Security.EnableASTBlacklist, override.Security.EnableASTBlacklist),
 		},
-		Context: ContextConfig{
+		Context: &ContextConfig{
 			WorkingDir:       mergeStr(base.Context.WorkingDir, override.Context.WorkingDir),
 			GlobalConfigPath: mergeStr(base.Context.GlobalConfigPath, override.Context.GlobalConfigPath),
 			MaxBudget:        mergeNum(base.Context.MaxBudget, override.Context.MaxBudget),
 			PluginsDir:       mergeStr(base.Context.PluginsDir, override.Context.PluginsDir),
 		},
-		MCP: MCPConfig{
+		MCP: &MCPConfig{
 			Servers: mergeServers(base.MCP.Servers, override.MCP.Servers),
 		},
-		UI: UIConfig{
+		UI: &UIConfig{
 			Theme:    mergeStr(base.UI.Theme, override.UI.Theme),
 			LogLevel: mergeStr(base.UI.LogLevel, override.UI.LogLevel),
 			Language: mergeStr(base.UI.Language, override.UI.Language),
 		},
-		User: UserProfileConfig{
+		User: &UserProfileConfig{
 			Name:               mergeStr(base.User.Name, override.User.Name),
 			Timezone:           mergeStr(base.User.Timezone, override.User.Timezone),
 			CommunicationStyle: mergeStr(base.User.CommunicationStyle, override.User.CommunicationStyle),
 		},
-		Services: ServicesConfig{
+		Services: &ServicesConfig{
 			Email: mergeEmail(base.Services.Email, override.Services.Email),
 		},
 	}
@@ -482,9 +482,9 @@ func mergeEmail(base, override EmailServiceConfig) EmailServiceConfig {
 // Note: OPENAI_COMPAT_DISABLE_TOOLS has no env-var equivalent because the
 // flag is structural (it disables a feature of the provider configuration)
 // rather than a credential. Set it via the config file or wizard instead.
-func FromEnv() Config {
-	return Config{
-		Providers: ProvidersConfig{
+func FromEnv() *Config {
+	return &Config{
+		Providers: &ProvidersConfig{
 			Anthropic: AnthropicConfig{
 				APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 			},
@@ -504,7 +504,7 @@ func FromEnv() Config {
 				Name:    os.Getenv("OPENAI_COMPAT_NAME"),
 			},
 		},
-		UI: UIConfig{
+		UI: &UIConfig{
 			LogLevel: os.Getenv("FEINO_LOG_LEVEL"),
 		},
 	}
@@ -513,7 +513,7 @@ func FromEnv() Config {
 // HasCredentials reports whether cfg contains at least one usable provider
 // credential. A Gemini Vertex config without an API key is considered a valid
 // credential when both ProjectID and Location are set.
-func HasCredentials(cfg Config) bool {
+func HasCredentials(cfg *Config) bool {
 	p := cfg.Providers
 	if p.Anthropic.APIKey != "" {
 		return true

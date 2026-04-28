@@ -90,7 +90,7 @@ func newTestSession(t *testing.T, text string) *Session {
 	m := &stubModel{name: "stub-model", text: text}
 	prov := newStubProvider("stub", m)
 	sess, err := New(
-		config.Config{},
+		&config.Config{},
 		WithLogger(slog.Default()),
 		WithProviders(prov),
 	)
@@ -104,7 +104,7 @@ func newBlockingSession(t *testing.T) (*Session, *stubModel) {
 	t.Helper()
 	m := &stubModel{name: "block", release: make(chan struct{})}
 	prov := newStubProvider("blocking", m)
-	sess, err := New(config.Config{}, WithLogger(slog.Default()), WithProviders(prov))
+	sess, err := New(&config.Config{}, WithLogger(slog.Default()), WithProviders(prov))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestNew_NoProviders_Errors(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 	t.Setenv("GEMINI_API_KEY", "")
 
-	_, err := New(config.Config{})
+	_, err := New(&config.Config{})
 	if err == nil {
 		t.Fatal("expected error when no providers available, got nil")
 	}
@@ -278,9 +278,9 @@ func TestSession_Reset_Busy(t *testing.T) {
 func TestSession_UpdateConfig(t *testing.T) {
 	sess := newTestSession(t, "ok")
 
-	override := config.Config{
-		Context: config.ContextConfig{MaxBudget: 99999},
-		Agent:   config.AgentConfig{MaxRetries: 7},
+	override := &config.Config{
+		Context: &config.ContextConfig{MaxBudget: 99999},
+		Agent:   &config.AgentConfig{MaxRetries: 7},
 	}
 	if err := sess.UpdateConfig(override); err != nil {
 		t.Fatalf("UpdateConfig: %v", err)
@@ -305,7 +305,7 @@ func TestSession_UpdateConfig_Busy(t *testing.T) {
 	if err := sess.Send(t.Context(), "start"); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if err := sess.UpdateConfig(config.Config{}); !errors.Is(err, ErrBusy) {
+	if err := sess.UpdateConfig(&config.Config{}); !errors.Is(err, ErrBusy) {
 		t.Errorf("UpdateConfig while busy: got %v, want ErrBusy", err)
 	}
 	close(m.release)
@@ -315,7 +315,7 @@ func TestSession_Config_ReturnsActiveConfig(t *testing.T) {
 	m := &stubModel{name: "stub-model", text: "ok"}
 	prov := newStubProvider("stub", m)
 	sess, err := New(
-		config.Config{Security: config.SecurityConfig{PermissionLevel: "write"}},
+		&config.Config{Security: &config.SecurityConfig{PermissionLevel: "write"}},
 		WithProviders(prov),
 	)
 	if err != nil {

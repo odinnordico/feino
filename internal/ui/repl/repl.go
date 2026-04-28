@@ -63,7 +63,7 @@ func (s *safeWriter) WriteString(str string) (int, error) {
 func Run(ctx context.Context, sess *app.Session, in io.Reader, out io.Writer) error {
 	sw := &safeWriter{w: out}
 
-	_, _ = io.WriteString(sw, banner)
+	_, _ = sw.WriteString(banner)
 
 	// Handle SIGINT: cancel in-flight turn; print hint when idle.
 	sigCh := make(chan os.Signal, 1)
@@ -117,7 +117,7 @@ func Run(ctx context.Context, sess *app.Session, in io.Reader, out io.Writer) er
 	scanner.Buffer(make([]byte, bufio.MaxScanTokenSize), 1<<20) // 1 MB limit
 
 	for {
-		_, _ = io.WriteString(sw, prompt)
+		_, _ = sw.WriteString(prompt)
 		if !scanner.Scan() {
 			break
 		}
@@ -130,14 +130,14 @@ func Run(ctx context.Context, sess *app.Session, in io.Reader, out io.Writer) er
 		case ":quit", ":q":
 			return nil
 		case ":reset":
-			sess.Reset()
+			_ = sess.Reset()
 			_, _ = fmt.Fprintln(sw, "conversation reset")
 			continue
 		case ":history":
 			printHistory(sw, sess.History())
 			continue
 		case ":help":
-			_, _ = io.WriteString(sw, helpText)
+			_, _ = sw.WriteString(helpText)
 			continue
 		case ":config":
 			printConfig(sw, sess)

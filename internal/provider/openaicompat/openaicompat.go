@@ -203,7 +203,7 @@ func (p *Provider) getModelsInternal(ctx context.Context) ([]model.Model, error)
 	}
 
 	out := make([]model.Model, 0, len(page.Data))
-	for _, m := range page.Data {
+	for _, m := range page.Data { //nolint:gocritic // model list parsed once at startup; copy overhead is negligible
 		out = append(out, &Model{
 			id:       m.ID,
 			provider: p,
@@ -340,7 +340,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Register tools.
 	if len(opts.Tools) > 0 {
-		var oaiTools []openai.ChatCompletionToolParam
+		oaiTools := make([]openai.ChatCompletionToolParam, 0, len(opts.Tools))
 		for _, t := range opts.Tools {
 			oaiTools = append(oaiTools, openai.ChatCompletionToolParam{
 				Type: "function",
@@ -383,7 +383,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 				parts.PushBack(part)
 				onPart(part)
 			}
-			for _, tc := range delta.ToolCalls {
+			for _, tc := range delta.ToolCalls { //nolint:gocritic // streaming response tool calls parsed once per request; copy overhead is negligible
 				b, ok := tcByIdx[tc.Index]
 				if !ok {
 					b = &toolCallBuilder{}
@@ -409,7 +409,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 	}
 
 	// Finalize tool calls in index order.
-	var indices []int64
+	indices := make([]int64, 0, len(tcByIdx))
 	for idx := range tcByIdx {
 		indices = append(indices, idx)
 	}

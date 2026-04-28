@@ -238,7 +238,7 @@ func Retry[T any](
 func retryBackoff(attempt int, initialDelay, maxDelay time.Duration) time.Duration {
 	delay := min(time.Duration(float64(initialDelay)*math.Pow(2, float64(attempt))), maxDelay)
 	// Apply jitter: subtract up to 25% of the delay
-	jitter := time.Duration(rand.Int64N(int64(delay / 4)))
+	jitter := time.Duration(rand.Int64N(int64(delay / 4))) //nolint:gosec // jitter for exponential backoff does not require cryptographic randomness
 	return delay - jitter
 }
 

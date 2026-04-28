@@ -87,7 +87,7 @@ func (p *ScriptPlugin) Run(params map[string]any) ToolResult {
 	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, p.execPath)
+	cmd := exec.CommandContext(ctx, p.execPath) //nolint:gosec // execPath is validated at plugin load time against the allowed plugins directory
 	cmd.Stdin = bytes.NewReader(input)
 	// WaitDelay forces the stdout/stderr pipes closed after the context
 	// deadline fires, even when orphaned grandchild processes (e.g. the

@@ -133,7 +133,7 @@ func newConsoleBuffer(maxSize int) *consoleBuffer {
 }
 
 // add records one entry, dropping the oldest when at capacity.
-func (b *consoleBuffer) add(e consoleEntry) {
+func (b *consoleBuffer) add(e consoleEntry) { //nolint:gocritic // consoleEntry is a small buffer-internal type; value copy is intentional
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if len(b.entries) >= b.maxSize {
@@ -302,7 +302,7 @@ func (b *networkBuffer) onFailed(e *network.EventLoadingFailed) {
 	}
 }
 
-func (b *networkBuffer) addLocked(e networkEntry) {
+func (b *networkBuffer) addLocked(e networkEntry) { //nolint:gocritic // networkEntry is an internal type; copy is intentional
 	if len(b.completed) >= b.maxSize {
 		b.completed = b.completed[1:]
 	}
@@ -324,7 +324,7 @@ func (b *networkBuffer) read(q networkQuery) []networkEntry {
 	defer b.mu.Unlock()
 
 	var result []networkEntry
-	for _, e := range b.completed {
+	for _, e := range b.completed { //nolint:gocritic // networkEntry copies are bounded by buffer capacity; pointer indirection adds complexity for negligible gain
 		if networkEntryMatches(e, q) {
 			result = append(result, e)
 		}
@@ -345,7 +345,7 @@ func (b *networkBuffer) read(q networkQuery) []networkEntry {
 	return result
 }
 
-func networkEntryMatches(e networkEntry, q networkQuery) bool {
+func networkEntryMatches(e networkEntry, q networkQuery) bool { //nolint:gocritic // networkEntry is an internal type; copy is intentional
 	if q.urlFilter != "" && !strings.Contains(strings.ToLower(e.URL), strings.ToLower(q.urlFilter)) {
 		return false
 	}
@@ -503,13 +503,15 @@ func (pool *browserPool) ensureConnected() error {
 // which silently turns the probe into "no browser found" and forces an
 // unnecessary fresh launch.
 func (pool *browserPool) probeWebSocketURL() string {
-	url := fmt.Sprintf("http://127.0.0.1:%d/json/version", pool.debugPort)
-	client := &http.Client{Timeout: browserConnTimeout}
-	resp, err := client.Get(url)
+	debugURL := fmt.Sprintf("http://127.0.0.1:%d/json/version", pool.debugPort)
+	ctx, cancel := context.WithTimeout(context.Background(), browserConnTimeout)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, debugURL, http.NoBody)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return ""
 	}
@@ -904,7 +906,7 @@ func userChromeDataDir() string {
 		}
 	}
 	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
+		if _, err := os.Stat(c); err == nil { //nolint:gosec // scanning well-known browser profile directories, not user-supplied paths
 			return c
 		}
 	}
@@ -2224,7 +2226,7 @@ func newBrowserDragTool(pool *browserPool, logger *slog.Logger) Tool {
 				if err := cdpinput.SetInterceptDrags(true).Do(ctx); err != nil {
 					return fmt.Errorf("enable drag interception: %w", err)
 				}
-				defer cdpinput.SetInterceptDrags(false).Do(ctx) //nolint:errcheck
+				defer cdpinput.SetInterceptDrags(false).Do(ctx) //nolint:errcheck // best-effort cleanup; drag state resets on tab close anyway
 
 				ch := make(chan *cdpinput.EventDragIntercepted, 1)
 				chromedp.ListenTarget(ctx, func(ev any) {
@@ -2369,7 +2371,7 @@ func newBrowserScreenshotTool(pool *browserPool, logger *slog.Logger) Tool {
 				if err != nil {
 					return NewToolResult("", fmt.Errorf("browser_screenshot: create temp file: %w", err))
 				}
-				f.Close()
+				_ = f.Close()
 				savePath = f.Name()
 			}
 
@@ -2591,7 +2593,7 @@ func newBrowserDialogTool(pool *browserPool, logger *slog.Logger) Tool {
 
 // ── browser_get_text ──────────────────────────────────────────────────────────
 
-func newBrowserGetTextTool(pool *browserPool, logger *slog.Logger) Tool {
+func newBrowserGetTextTool(pool *browserPool, logger *slog.Logger) Tool { //nolint:dupl // getText and getHTML are structurally similar but use different chromedp actions (Text vs OuterHTML)
 	schema := map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
@@ -2629,7 +2631,7 @@ func newBrowserGetTextTool(pool *browserPool, logger *slog.Logger) Tool {
 
 // ── browser_get_html ──────────────────────────────────────────────────────────
 
-func newBrowserGetHTMLTool(pool *browserPool, logger *slog.Logger) Tool {
+func newBrowserGetHTMLTool(pool *browserPool, logger *slog.Logger) Tool { //nolint:dupl // getText and getHTML are structurally similar but use different chromedp actions (Text vs OuterHTML)
 	schema := map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
@@ -3689,7 +3691,7 @@ func newBrowserCloseTabTool(pool *browserPool, logger *slog.Logger) Tool {
 
 // ── browser_back / browser_forward / browser_reload ───────────────────────────
 
-func newBrowserBackTool(pool *browserPool, logger *slog.Logger) Tool {
+func newBrowserBackTool(pool *browserPool, logger *slog.Logger) Tool { //nolint:dupl // back and forward share structure but use different chromedp navigation actions
 	schema := map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
@@ -3725,7 +3727,7 @@ func newBrowserBackTool(pool *browserPool, logger *slog.Logger) Tool {
 	)
 }
 
-func newBrowserForwardTool(pool *browserPool, logger *slog.Logger) Tool {
+func newBrowserForwardTool(pool *browserPool, logger *slog.Logger) Tool { //nolint:dupl // back and forward share structure but use different chromedp navigation actions
 	schema := map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,

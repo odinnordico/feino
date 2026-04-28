@@ -25,7 +25,7 @@ func getString(params map[string]any, key string) (string, bool) {
 }
 
 // getStringDefault extracts a string parameter or returns a default value.
-func getStringDefault(params map[string]any, key string, def string) string {
+func getStringDefault(params map[string]any, key, def string) string {
 	if s, ok := getString(params, key); ok {
 		return s
 	}

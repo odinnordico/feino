@@ -629,7 +629,7 @@ func productionDialSMTP(_ context.Context, cfg config.EmailServiceConfig, userna
 	return &realSMTPMailer{cfg: cfg, username: username, password: password}, nil
 }
 
-func (m *realSMTPMailer) send(_ context.Context, from string, to, cc []string, subject, body, htmlBody string) error {
+func (m *realSMTPMailer) send(ctx context.Context, from string, to, cc []string, subject, body, htmlBody string) error {
 	host := m.cfg.SMTPHost
 	port := m.cfg.SMTPPort
 	if port == 0 {
@@ -639,13 +639,25 @@ func (m *realSMTPMailer) send(_ context.Context, from string, to, cc []string, s
 
 	raw := buildMessage(from, to, cc, subject, body, htmlBody)
 
-	all := append(to, cc...)
+	all := append(to, cc...) //nolint:gocritic // intentionally creating a new combined slice, not appending back to `to`
 	auth := smtp.PlainAuth("", m.username, m.password, host)
 
 	if port == 465 {
 		// Implicit TLS (SMTPS).
 		tlsCfg := &tls.Config{ServerName: host}
-		conn, err := tls.Dial("tcp", addr, tlsCfg)
+		timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		dialer := &tls.Dialer{
+			Config: tlsCfg,
+		}
+
+		conn, err := dialer.DialContext(timeoutCtx, "tcp", addr)
+		defer func() {
+			if conn != nil {
+				_ = conn.Close()
+			}
+		}()
 		if err != nil {
 			return fmt.Errorf("smtp: tls dial %s: %w", addr, err)
 		}
@@ -654,15 +666,15 @@ func (m *realSMTPMailer) send(_ context.Context, from string, to, cc []string, s
 			return fmt.Errorf("smtp: new client: %w", err)
 		}
 		defer func() { _ = client.Quit() }()
-		if err := client.Auth(auth); err != nil {
-			return fmt.Errorf("smtp: auth: %w", err)
+		if authErr := client.Auth(auth); authErr != nil {
+			return fmt.Errorf("smtp: auth: %w", authErr)
 		}
-		if err := client.Mail(from); err != nil {
-			return fmt.Errorf("smtp: MAIL FROM: %w", err)
+		if mailErr := client.Mail(from); mailErr != nil {
+			return fmt.Errorf("smtp: MAIL FROM: %w", mailErr)
 		}
 		for _, rcpt := range all {
-			if err := client.Rcpt(rcpt); err != nil {
-				return fmt.Errorf("smtp: RCPT TO %s: %w", rcpt, err)
+			if rcptErr := client.Rcpt(rcpt); rcptErr != nil {
+				return fmt.Errorf("smtp: RCPT TO %s: %w", rcpt, rcptErr)
 			}
 		}
 		wc, err := client.Data()
@@ -711,7 +723,7 @@ func buildMessage(from string, to, cc []string, subject, body, htmlBody string) 
 
 	// multipart/alternative
 	boundary := fmt.Sprintf("feino_%d", time.Now().UnixNano())
-	writeHeader("Content-Type", fmt.Sprintf(`multipart/alternative; boundary="%s"`, boundary))
+	writeHeader("Content-Type", fmt.Sprintf(`multipart/alternative; boundary="%s"`, boundary)) //nolint:gocritic // %q would add Go-style escaping; MIME boundaries need literal quotes
 	sb.WriteString("\r\n")
 
 	// text/plain part
@@ -746,9 +758,9 @@ func buildMessage(from string, to, cc []string, subject, body, htmlBody string) 
 // extractBodies parses a raw MIME message and returns the plain-text and HTML
 // body parts. Falls back to treating the entire content as plain text.
 func extractBodies(r io.Reader) (plainText, htmlBody string, err error) {
-	msg, err := mail.ReadMessage(r)
-	if err != nil {
-		return "", "", err
+	msg, mailErr := mail.ReadMessage(r)
+	if mailErr != nil {
+		return "", "", mailErr
 	}
 
 	ct := msg.Header.Get("Content-Type")
@@ -757,11 +769,11 @@ func extractBodies(r io.Reader) (plainText, htmlBody string, err error) {
 	if strings.HasPrefix(mediaType, "multipart/") {
 		mr := multipart.NewReader(msg.Body, params["boundary"])
 		for {
-			part, err := mr.NextPart()
-			if err == io.EOF {
+			part, partErr := mr.NextPart()
+			if partErr == io.EOF {
 				break
 			}
-			if err != nil {
+			if partErr != nil {
 				break
 			}
 			partCT := part.Header.Get("Content-Type")

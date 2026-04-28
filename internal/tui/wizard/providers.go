@@ -44,7 +44,7 @@ type wizardProvider struct {
 	// prefill copies any existing credentials from cfg into res and returns
 	// true when credentials were found. The first provider that returns true
 	// becomes the pre-selected provider in the form.
-	prefill func(cfg config.Config, res *Result) bool
+	prefill func(cfg *config.Config, res *Result) bool
 
 	// summary returns the credential portion of the confirmation summary.
 	// It is called after form.Run() returns, so res reflects the user's entries.
@@ -91,7 +91,7 @@ func anthropicProvider(res *Result) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "anthropic" }),
-		prefill: func(cfg config.Config, res *Result) bool {
+		prefill: func(cfg *config.Config, res *Result) bool {
 			key := cfg.Providers.Anthropic.APIKey
 			if key == "" {
 				key = os.Getenv("ANTHROPIC_API_KEY")
@@ -144,7 +144,7 @@ func openaiProvider(res *Result) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai" }),
-		prefill: func(cfg config.Config, res *Result) bool {
+		prefill: func(cfg *config.Config, res *Result) bool {
 			key := cfg.Providers.OpenAI.APIKey
 			if key == "" {
 				key = os.Getenv("OPENAI_API_KEY")
@@ -233,7 +233,7 @@ func geminiProvider(res *Result) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "gemini" }),
-		prefill: func(cfg config.Config, res *Result) bool {
+		prefill: func(cfg *config.Config, res *Result) bool {
 			// Vertex AI path.
 			if cfg.Providers.Gemini.Vertex != nil && *cfg.Providers.Gemini.Vertex {
 				res.GeminiVertex = true
@@ -308,7 +308,7 @@ func ollamaProvider(res *Result) *wizardProvider {
 					Value(&res.OllamaHost),
 			).WithHideFunc(func() bool { return res.Provider != "ollama" }),
 		},
-		prefill: func(cfg config.Config, res *Result) bool {
+		prefill: func(cfg *config.Config, res *Result) bool {
 			if cfg.Providers.Ollama.DefaultModel == "" {
 				return false
 			}
@@ -363,7 +363,7 @@ func openaiCompatProvider(res *Result) *wizardProvider {
 				Validate(requireNonEmpty(i18n.T("summary_model"))).
 				Value(&res.DefaultModel),
 		).WithHideFunc(func() bool { return res.Provider != "openai_compat" }),
-		prefill: func(cfg config.Config, res *Result) bool {
+		prefill: func(cfg *config.Config, res *Result) bool {
 			baseURL := cfg.Providers.OpenAICompat.BaseURL
 			if baseURL == "" {
 				baseURL = os.Getenv("OPENAI_COMPAT_BASE_URL")
@@ -406,7 +406,7 @@ func openaiCompatProvider(res *Result) *wizardProvider {
 // doGetJSON executes req, checks for HTTP 200, and decodes the JSON body into
 // target. Returns a non-nil error on any network, status, or decode failure.
 func doGetJSON(req *http.Request, target any) error {
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URLs come from validated API key wizard steps, not raw user input
 	if err != nil {
 		return fmt.Errorf("network error: %w", err)
 	}
@@ -429,7 +429,7 @@ func fetchAnthropicModels(apiKey string) []huh.Option[string] {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.anthropic.com/v1/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.anthropic.com/v1/models", http.NoBody)
 	if err != nil {
 		return unavailableOption("could not build request")
 	}
@@ -476,7 +476,7 @@ func fetchOpenAIModels(apiKey, baseURL string) []huh.Option[string] {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/models", http.NoBody)
 	if err != nil {
 		return unavailableOption("could not build request")
 	}
@@ -511,8 +511,7 @@ func fetchGeminiModels(apiKey string) []huh.Option[string] {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		"https://generativelanguage.googleapis.com/v1beta/models?key="+apiKey, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://generativelanguage.googleapis.com/v1beta/models?key="+apiKey, http.NoBody)
 	if err != nil {
 		return unavailableOption("could not build request")
 	}
@@ -551,7 +550,7 @@ func fetchOllamaModels(host string) []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, host+"/api/tags", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, host+"/api/tags", http.NoBody)
 	if err != nil {
 		return nil
 	}

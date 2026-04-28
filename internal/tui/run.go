@@ -34,8 +34,7 @@ import (
 //  3. Saves updated config to disk.
 //  4. Creates an app.Session.
 //  5. Starts the Bubble Tea program.
-func Run(ctx context.Context, cfg config.Config) error {
-
+func Run(ctx context.Context, cfg *config.Config) error {
 	// Initialise i18n before anything renders. Language from config wins;
 	// empty string auto-detects from $LANG / $LC_ALL.
 	i18n.Init(cfg.UI.Language)
@@ -85,8 +84,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	// Memory store: persists agent-learned facts across sessions.
 	memStore := openMemoryStore(slog.Default())
 	if memStore != nil {
-		opts = append(opts, app.WithMemoryStore(memStore))
-		opts = append(opts, app.WithExtraTools(tools.NewMemoryTools(memStore, slog.Default())...))
+		opts = append(opts, app.WithMemoryStore(memStore), app.WithExtraTools(tools.NewMemoryTools(memStore, slog.Default())...))
 	}
 
 	sess, err := app.New(cfg, opts...)
@@ -163,7 +161,7 @@ func openLogFile() (*os.File, error) {
 // As a side effect this sets OLLAMA_HOST in the process environment when a
 // custom host is configured: the Ollama Go client reads that variable before
 // constructing its HTTP client and provides no other way to override the host.
-func buildOllamaOpts(ctx context.Context, cfg config.Config, logger *slog.Logger) []app.SessionOption {
+func buildOllamaOpts(ctx context.Context, cfg *config.Config, logger *slog.Logger) []app.SessionOption {
 	if cfg.Providers.Ollama.DefaultModel == "" {
 		return nil
 	}

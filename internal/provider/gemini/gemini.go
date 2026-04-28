@@ -385,7 +385,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Register Tools
 	if len(opts.Tools) > 0 {
-		var functions []*genai.FunctionDeclaration
+		functions := make([]*genai.FunctionDeclaration, 0, len(opts.Tools))
 		for _, t := range opts.Tools {
 			decl := &genai.FunctionDeclaration{
 				Name:        t.GetName(),

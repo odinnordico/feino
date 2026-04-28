@@ -62,7 +62,7 @@ func NewProvider(ctx context.Context, logger *slog.Logger) (*Provider, error) {
 		circuitBreaker: provider.DefaultCircuitBreaker(logger.With("component", "circuit_breaker", "provider", "ollama")),
 	}
 
-	client, err := p.createAndEnsureClient()
+	client, err := p.createAndEnsureClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func NewProvider(ctx context.Context, logger *slog.Logger) (*Provider, error) {
 }
 
 // createAndEnsureClient checks if ollama is running, starts it if not, and creates a client
-func (p *Provider) createAndEnsureClient() (*api.Client, error) {
+func (p *Provider) createAndEnsureClient(ctx context.Context) (*api.Client, error) {
 	if !p.isTesting {
 		// Check if ollama is installed
 		path, err := exec.LookPath("ollama")
@@ -83,10 +83,18 @@ func (p *Provider) createAndEnsureClient() (*api.Client, error) {
 
 		// Check if ollama server is running (default port 11434)
 		timeout := 1 * time.Second
-		conn, err := net.DialTimeout("tcp", "localhost:11434", timeout)
+
+		newCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		dialer := &net.Dialer{
+			Timeout: timeout,
+		}
+
+		conn, err := dialer.DialContext(newCtx, "tcp", "localhost:11434")
 		if err != nil {
 			p.logger.Info("ollama server is not running, attempting to start it...")
-			cmd := exec.Command("ollama", "serve")
+			cmd := exec.CommandContext(ctx, "ollama", "serve")
 			err = cmd.Start()
 			if err != nil {
 				return nil, fmt.Errorf("failed to start ollama server: %w", err)
@@ -94,7 +102,11 @@ func (p *Provider) createAndEnsureClient() (*api.Client, error) {
 			// Wait for server to start
 			for range 10 {
 				time.Sleep(1 * time.Second)
-				conn, err = net.DialTimeout("tcp", "localhost:11434", timeout)
+				dialer2 := &net.Dialer{
+					Timeout: timeout,
+				}
+
+				conn, err = dialer2.DialContext(newCtx, "tcp", "localhost:11434")
 				if err == nil {
 					cerr := conn.Close()
 					if cerr != nil {
@@ -138,7 +150,7 @@ func (p *Provider) createAndEnsureClient() (*api.Client, error) {
 // and recreates the client connection.
 func (p *Provider) renewClient(ctx context.Context) error {
 	p.logger.Info("renewing ollama client, checking server health...")
-	client, err := p.createAndEnsureClient()
+	client, err := p.createAndEnsureClient(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to renew ollama client: %w", err)
 	}
@@ -198,7 +210,7 @@ func (p *Provider) getModelsInternal(ctx context.Context) ([]model.Model, error)
 	}
 
 	var models []model.Model
-	for _, m := range resp.Models {
+	for _, m := range resp.Models { //nolint:gocritic // model list is parsed once at startup; copy overhead is negligible
 		models = append(models, &Model{
 			id:       m.Name,
 			name:     m.Name,
@@ -280,8 +292,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 		"tools", len(opts.Tools),
 	)
 
-	var messages []api.Message
-
+	messages := make([]api.Message, 0, len(history))
 	for _, msg := range history {
 		var content strings.Builder
 		var toolCalls []api.ToolCall
@@ -348,7 +359,7 @@ func (m *Model) inferInternal(ctx context.Context, history []model.Message, opts
 
 	// Map Tools
 	if len(opts.Tools) > 0 {
-		var ollamaTools []api.Tool
+		ollamaTools := make([]api.Tool, 0, len(opts.Tools))
 		for _, t := range opts.Tools {
 			var params api.ToolFunctionParameters
 			paramsJSON, _ := json.Marshal(t.GetParameters())

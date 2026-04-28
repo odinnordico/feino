@@ -30,7 +30,7 @@ type sessionAssets struct {
 // BuildSession constructs an app.Session with the same options as tui.Run:
 // Ollama provider injection, email tools (when enabled), and the memory
 // store. It is shared between the TUI and web runtimes to avoid duplication.
-func BuildSession(cfg config.Config) (sessionAssets, error) {
+func BuildSession(cfg *config.Config) (sessionAssets, error) {
 	cfgPath, _ := config.DefaultConfigPath()
 	store := credentialStore()
 
@@ -59,8 +59,7 @@ func BuildSession(cfg config.Config) (sessionAssets, error) {
 	var memStore *memory.FileStore
 	if ms, err := openMemoryStore(); err == nil && ms != nil {
 		memStore = ms
-		opts = append(opts, app.WithMemoryStore(memStore))
-		opts = append(opts, app.WithExtraTools(tools.NewMemoryTools(memStore, slog.Default())...))
+		opts = append(opts, app.WithMemoryStore(memStore), app.WithExtraTools(tools.NewMemoryTools(memStore, slog.Default())...))
 	}
 
 	sess, err := app.New(cfg, opts...)

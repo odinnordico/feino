@@ -7,7 +7,10 @@ import (
 
 // configToProto converts a config.Config to its proto representation.
 // API keys are never included in the output — only has_api_key is set.
-func configToProto(cfg config.Config) *feinov1.ConfigProto {
+func configToProto(cfg *config.Config) *feinov1.ConfigProto {
+	if cfg == nil {
+		return nil
+	}
 	vertex := cfg.Providers.Gemini.Vertex != nil && *cfg.Providers.Gemini.Vertex
 	disableTools := cfg.Providers.OpenAICompat.DisableTools != nil && *cfg.Providers.OpenAICompat.DisableTools
 	enableAST := cfg.Security.EnableASTBlacklist != nil && *cfg.Security.EnableASTBlacklist
@@ -86,7 +89,7 @@ func configToProto(cfg config.Config) *feinov1.ConfigProto {
 // protoToConfig applies non-zero proto fields onto base config, returning the
 // merged result. API keys are only applied when the proto field is non-empty
 // (empty string = "leave unchanged").
-func protoToConfig(p *feinov1.ConfigProto, base config.Config) config.Config {
+func protoToConfig(p *feinov1.ConfigProto, base *config.Config) *config.Config {
 	if p == nil {
 		return base
 	}

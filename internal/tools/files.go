@@ -218,13 +218,13 @@ func newFileWriteTool(logger *slog.Logger) Tool {
 			logger.Info("writing file", "path", path, "bytes", len(content))
 
 			if dir := filepath.Dir(path); dir != "." {
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				if err := os.MkdirAll(dir, 0o755); err != nil {
 					logger.Error("failed to create directories", "path", dir, "error", err)
 					return NewToolResult("", fmt.Errorf("file_write: creating directories: %w", err))
 				}
 			}
 
-			if err := atomicWrite(path, []byte(content), 0644); err != nil {
+			if err := atomicWrite(path, []byte(content), 0o644); err != nil {
 				logger.Error("failed to write file", "path", path, "error", err)
 				return NewToolResult("", fmt.Errorf("file_write: %w", err))
 			}
@@ -297,7 +297,7 @@ func newFileEditTool(logger *slog.Logger) Tool {
 			}
 
 			updated := strings.ReplaceAll(original, oldStr, newStr)
-			if err := atomicWrite(path, []byte(updated), 0644); err != nil {
+			if err := atomicWrite(path, []byte(updated), 0o644); err != nil {
 				logger.Error("failed to write file after edit", "path", path, "error", err)
 				return NewToolResult("", fmt.Errorf("file_edit: %w", err))
 			}

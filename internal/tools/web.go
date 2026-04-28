@@ -64,7 +64,7 @@ func newWebFetchTool(logger *slog.Logger) Tool {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
 			defer cancel()
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, http.NoBody)
 			if err != nil {
 				return NewToolResult("", fmt.Errorf("web_fetch: invalid request: %w", err))
 			}
@@ -75,7 +75,7 @@ func newWebFetchTool(logger *slog.Logger) Tool {
 			if err != nil {
 				return NewToolResult("", fmt.Errorf("web_fetch: request failed: %w", err))
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			limited := io.LimitReader(resp.Body, maxBodyBytes+1)
 			body, err := io.ReadAll(limited)
@@ -144,7 +144,7 @@ func newWebSearchTool(logger *slog.Logger) Tool {
 			defer cancel()
 
 			apiURL := "https://api.duckduckgo.com/?q=" + url.QueryEscape(query) + "&format=json&no_html=1&no_redirect=1&skip_disambig=1"
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 			if err != nil {
 				return NewToolResult("", fmt.Errorf("web_search: invalid request: %w", err))
 			}
@@ -154,14 +154,14 @@ func newWebSearchTool(logger *slog.Logger) Tool {
 			if err != nil {
 				return NewToolResult("", fmt.Errorf("web_search: request failed: %w", err))
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			var ddg duckduckGoResponse
 			if err := json.NewDecoder(resp.Body).Decode(&ddg); err != nil {
 				return NewToolResult("", fmt.Errorf("web_search: decode response: %w", err))
 			}
 
-			results := buildSearchResults(ddg, maxResults)
+			results := buildSearchResults(&ddg, maxResults)
 			if len(results) == 0 {
 				return NewToolResult("No results found. Try web_fetch with a direct URL instead.", nil)
 			}
@@ -203,7 +203,7 @@ type searchResult struct {
 	Snippet string `json:"snippet"`
 }
 
-func buildSearchResults(ddg duckduckGoResponse, maxOut int) []searchResult {
+func buildSearchResults(ddg *duckduckGoResponse, maxOut int) []searchResult {
 	var out []searchResult
 
 	// Instant answer (e.g. calculator, unit conversion, currency).

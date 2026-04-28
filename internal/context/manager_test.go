@@ -178,8 +178,8 @@ func TestAppendLearning_Lifecycle(t *testing.T) {
 	}
 
 	// 2. Append to existing section — both bullets must be present.
-	if err := mgr.AppendLearning("Prefer atomic.Value"); err != nil {
-		t.Fatalf("Second AppendLearning failed: %v", err)
+	if appendErr := mgr.AppendLearning("Prefer atomic.Value"); appendErr != nil {
+		t.Fatalf("Second AppendLearning failed: %v", appendErr)
 	}
 
 	data, err = os.ReadFile(path)

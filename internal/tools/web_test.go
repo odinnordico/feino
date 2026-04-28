@@ -149,7 +149,7 @@ func TestWebSearch_ReturnsInstantAnswer(t *testing.T) {
 
 	// Swap the DDG API URL by patching via the tool closure; instead, we call
 	// the internal helper directly to keep the test self-contained.
-	result := buildSearchResults(duckduckGoResponse{
+	result := buildSearchResults(&duckduckGoResponse{
 		Answer:     "1 USD = 0.92 EUR",
 		AnswerType: "currency",
 	}, 10)
@@ -165,7 +165,7 @@ func TestWebSearch_ReturnsInstantAnswer(t *testing.T) {
 
 func TestWebSearch_EmptyResultsMessage(t *testing.T) {
 	// buildSearchResults with an empty response should return nothing.
-	result := buildSearchResults(duckduckGoResponse{}, 10)
+	result := buildSearchResults(&duckduckGoResponse{}, 10)
 	if len(result) != 0 {
 		t.Errorf("expected empty results for empty DDG response, got %d", len(result))
 	}
@@ -179,7 +179,7 @@ func TestWebSearch_MaxResultsRespected(t *testing.T) {
 			FirstURL: "https://example.com",
 		})
 	}
-	results := buildSearchResults(ddg, 5)
+	results := buildSearchResults(&ddg, 5)
 	if len(results) > 5 {
 		t.Errorf("expected at most 5 results, got %d", len(results))
 	}

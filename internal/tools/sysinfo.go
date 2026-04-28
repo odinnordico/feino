@@ -177,7 +177,7 @@ func collectSysInfo(ctx context.Context) (sysInfoResult, error) {
 			AvailableHuman: formatBytes(vm.Available),
 			UsedPercent:    roundFloat(vm.UsedPercent, 2),
 		}
-		if sw, err := mem.SwapMemoryWithContext(ctx); err == nil {
+		if sw, swErr := mem.SwapMemoryWithContext(ctx); swErr == nil {
 			res.Memory.SwapTotalBytes = sw.Total
 			res.Memory.SwapUsedBytes = sw.Used
 			res.Memory.SwapUsedPercent = roundFloat(sw.UsedPercent, 2)

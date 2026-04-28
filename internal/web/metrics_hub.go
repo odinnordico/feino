@@ -54,7 +54,7 @@ func newMetricsHub(sess *app.Session) *metricsHub {
 					CompletionTokens: int32(meta.CompletionTokens),
 					TotalTokens:      int32(meta.TotalTokens),
 				},
-				LatencyMs:  float64(meta.Usage.Duration.Milliseconds()),
+				LatencyMs:  float64(meta.Duration.Milliseconds()),
 				ReactState: state,
 				Timestamp:  timestamppb.New(time.Now()),
 			}
@@ -67,7 +67,7 @@ func newMetricsHub(sess *app.Session) *metricsHub {
 
 // Subscribe registers a MetricsEvent channel for the given ID. The returned
 // cancel function removes the subscription.
-func (h *metricsHub) Subscribe(id string) (<-chan *feinov1.MetricsEvent, func()) {
+func (h *metricsHub) Subscribe(id string) (events <-chan *feinov1.MetricsEvent, unsubscribe func()) {
 	ch := make(chan *feinov1.MetricsEvent, 32)
 	h.mu.Lock()
 	h.subs[id] = ch

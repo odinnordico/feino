@@ -14,6 +14,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -24,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -53,7 +55,10 @@ func (s *seqServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"object":"list","data":[{"id":"simulated-model","object":"model","created":1700000000,"owned_by":"demoserver"}]}`)
+		_, err := fmt.Fprintln(w, `{"object":"list","data":[{"id":"simulated-model","object":"model","created":1700000000,"owned_by":"demoserver"}]}`)
+		if err != nil {
+			log.Printf("Error writing models response: %v", err)
+		}
 
 	case r.Method == http.MethodPost && r.URL.Path == "/v1/chat/completions":
 		var req struct {
@@ -89,8 +94,11 @@ func writeSSE(w http.ResponseWriter, resp response) {
 	}
 
 	emit := func(v any) {
-		b, _ := json.Marshal(v)
-		fmt.Fprintf(w, "data: %s\n\n", b)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return
+		}
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", b)
 		f.Flush()
 	}
 
@@ -160,7 +168,7 @@ func writeSSE(w http.ResponseWriter, resp response) {
 			"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30,
 		},
 	})
-	fmt.Fprint(w, "data: [DONE]\n\n")
+	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	f.Flush()
 }
 
@@ -172,7 +180,7 @@ func writeJSONResp(w http.ResponseWriter, resp response) {
 	msg := map[string]any{"role": "assistant"}
 	if len(resp.toolCalls) > 0 {
 		finishReason = "tool_calls"
-		var tcs []any
+		tcs := make([]any, 0, len(resp.toolCalls))
 		for i, tc := range resp.toolCalls {
 			id := tc.id
 			if id == "" {
@@ -285,13 +293,19 @@ func main() {
 
 	srv := &seqServer{responses: demoCorpus(demo)}
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	// Start a small delay before starting the server to allow some time for the ollama server to start
+	time.Sleep(1 * time.Second)
+	netConf := net.ListenConfig{
+		KeepAlive: 1 * time.Second,
+	}
+
+	ln, err := netConf.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("demoserver: listen: %v", err)
 	}
 	go func() {
-		if err := http.Serve(ln, srv); err != nil && !strings.Contains(err.Error(), "use of closed") {
-			log.Printf("demoserver: http: %v", err)
+		if serveErr := http.Serve(ln, srv); serveErr != nil && !strings.Contains(serveErr.Error(), "use of closed") { //nolint:gosec // demo server uses net.Listener; shutdown is managed by closing the listener
+			log.Printf("demoserver: http: %v", serveErr)
 		}
 	}()
 	baseURL := fmt.Sprintf("http://%s", ln.Addr())
@@ -303,8 +317,9 @@ func main() {
 	}
 	defer func() { _ = os.RemoveAll(tmpHome) }()
 
-	if err := os.MkdirAll(filepath.Join(tmpHome, ".feino"), 0o755); err != nil {
-		log.Fatalf("demoserver: mkdir: %v", err)
+	if mkdirErr := os.MkdirAll(filepath.Join(tmpHome, ".feino"), 0o755); mkdirErr != nil {
+		_ = os.RemoveAll(tmpHome)
+		log.Fatalf("demoserver: mkdir: %v", mkdirErr) //nolint:gocritic // explicit cleanup above makes the defer redundant; Fatalf is intentional
 	}
 
 	permLevel := "bash"
@@ -331,8 +346,9 @@ func main() {
 	}
 	cfgBytes, _ := yaml.Marshal(cfg)
 	cfgPath := filepath.Join(tmpHome, ".feino", "config.yaml")
-	if err := os.WriteFile(cfgPath, cfgBytes, 0o600); err != nil {
-		log.Fatalf("demoserver: write config: %v", err)
+	if writeErr := os.WriteFile(cfgPath, cfgBytes, 0o600); writeErr != nil {
+		_ = os.RemoveAll(tmpHome)
+		log.Fatalf("demoserver: write config: %v", writeErr)
 	}
 
 	// Locate the feino binary next to demoserver.
@@ -356,7 +372,7 @@ func main() {
 	}
 	env = append(env, "HOME="+tmpHome)
 
-	cmd := exec.Command(feinoPath, os.Args[1:]...)
+	cmd := exec.CommandContext(context.Background(), feinoPath, os.Args[1:]...) //nolint:gosec // feinoPath is resolved from the binary's own directory; args are passed through from the CLI
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

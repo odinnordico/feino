@@ -3,11 +3,13 @@ package testserver
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ── Vector unit tests ─────────────────────────────────────────────────────────
@@ -129,7 +131,11 @@ func TestSimulatedServer_ModelsEndpoint(t *testing.T) {
 	srv := NewSimulatedServer([]Record{{Prompt: "x", Response: RecordedResponse{Text: "y"}}})
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL() + "/v1/models")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL()+"/v1/models", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +322,13 @@ func postCompletion(t *testing.T, baseURL, message string, stream bool) []map[st
 		"stream":   stream,
 		"messages": []map[string]any{{"role": "user", "content": message}},
 	})
-	resp, err := http.Post(baseURL+"/v1/chat/completions", "application/json", bytes.NewReader(reqBody))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("POST failed: %v", err)
 	}
@@ -361,7 +373,12 @@ func postRawStream(t *testing.T, baseURL, message string, stream bool) string {
 		"stream":   stream,
 		"messages": []map[string]any{{"role": "user", "content": message}},
 	})
-	resp, err := http.Post(baseURL+"/v1/chat/completions", "application/json", bytes.NewReader(reqBody))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+
 	if err != nil {
 		t.Fatalf("POST failed: %v", err)
 	}

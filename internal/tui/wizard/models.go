@@ -52,15 +52,15 @@ type Result struct {
 }
 
 // ToConfig converts a WizardResult into a config.Config ready for config.Save.
-func (r Result) ToConfig() config.Config {
-	cfg := config.Config{
-		Context: config.ContextConfig{
+func (r *Result) ToConfig() *config.Config {
+	cfg := &config.Config{
+		Context: &config.ContextConfig{
 			WorkingDir: r.WorkingDir,
 		},
-		UI: config.UIConfig{
+		UI: &config.UIConfig{
 			Theme: r.Theme,
 		},
-		User: config.UserProfileConfig{
+		User: &config.UserProfileConfig{
 			Name:               r.Name,
 			Timezone:           r.Timezone,
 			CommunicationStyle: r.CommunicationStyle,
