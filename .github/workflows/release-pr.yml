@@ -60,7 +60,7 @@ jobs:
           args: release --snapshot --clean --skip=publish,sign,announce
 
       - name: Generate SLSA build provenance (snapshot)
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.tar.gz
