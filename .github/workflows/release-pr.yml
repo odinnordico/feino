@@ -68,7 +68,7 @@ jobs:
             dist/checksums.txt
 
       - name: Upload snapshot artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-snapshot
           path: |
