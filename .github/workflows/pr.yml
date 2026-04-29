@@ -156,7 +156,7 @@ jobs:
         run: npm run lint:sarif
       - name: Upload SARIF results
         if: always() && hashFiles('internal/web/ui/eslint-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: internal/web/ui/eslint-results.sarif
           category: eslint
