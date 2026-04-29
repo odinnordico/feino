@@ -5,13 +5,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	sitter "github.com/smacker/go-tree-sitter"
-	"github.com/smacker/go-tree-sitter/golang"
 )
 
 // SemanticChunk holds the metadata and bounds of a high-precision AST slice.
@@ -25,29 +25,23 @@ type SemanticChunk struct {
 	EndLine   uint32
 }
 
-// TreeSitterParser bounds native CGO parsers for code semantics logic.
+// TreeSitterParser provides code chunking using Go's built-in go/ast package.
+// The name is kept for API compatibility; CGO is no longer required.
 // It is safe for concurrent use.
 type TreeSitterParser struct {
-	mu       sync.Mutex
-	logger   *slog.Logger
-	goParser *sitter.Parser
+	mu     sync.Mutex
+	logger *slog.Logger
 }
 
-// NewTreeSitterParser initializes grammar and language bindings for the AST.
+// NewTreeSitterParser initializes the parser.
 func NewTreeSitterParser(logger *slog.Logger) *TreeSitterParser {
-	parser := sitter.NewParser()
-	parser.SetLanguage(golang.GetLanguage())
-	return &TreeSitterParser{
-		logger:   logger,
-		goParser: parser,
-	}
+	return &TreeSitterParser{logger: logger}
 }
 
 // ExtractSemanticChunks converts a raw codebase string into precise semantic elements.
 // It detects the language based on the file extension and falls back to line-based chunking for unknown types.
 func (t *TreeSitterParser) ExtractSemanticChunks(ctx context.Context, sourceCode []byte, filePath string, skeletonOnly bool) ([]SemanticChunk, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
-
 	switch ext {
 	case ".go":
 		return t.extractGoChunks(ctx, sourceCode, filePath, skeletonOnly)
@@ -56,99 +50,57 @@ func (t *TreeSitterParser) ExtractSemanticChunks(ctx context.Context, sourceCode
 	}
 }
 
-// extractGoChunks handles AST-based extraction for Go files.
-func (t *TreeSitterParser) extractGoChunks(ctx context.Context, sourceCode []byte, filePath string, skeletonOnly bool) ([]SemanticChunk, error) {
+// extractGoChunks handles AST-based extraction for Go files using go/ast.
+func (t *TreeSitterParser) extractGoChunks(_ context.Context, sourceCode []byte, filePath string, skeletonOnly bool) ([]SemanticChunk, error) {
+	fset := token.NewFileSet()
+
 	t.mu.Lock()
-	tree, err := t.goParser.ParseCtx(ctx, nil, sourceCode)
+	f, parseErr := parser.ParseFile(fset, filePath, sourceCode, parser.ParseComments)
 	t.mu.Unlock()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse golang AST: %w", err)
+	if parseErr != nil {
+		t.logger.Warn("go/ast parse failed, falling back to line chunking", "file", filePath, "error", parseErr)
+		return t.extractLineChunks(sourceCode, filePath)
 	}
-	defer tree.Close()
 
-	root := tree.RootNode()
-	var chunks []SemanticChunk
-	processedNodes := make(map[uintptr]struct{})
-
-	queryStr := `
-		(function_declaration) @function
-		(method_declaration) @method
-		(type_declaration) @type
-	`
-	query, err := sitter.NewQuery([]byte(queryStr), golang.GetLanguage())
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile AST query: %w", err)
-	}
-	defer query.Close()
-
-	qc := sitter.NewQueryCursor()
-	defer qc.Close()
-
-	qc.Exec(query, root)
-
-	for {
-		match, ok := qc.NextMatch()
-		if !ok {
-			break
+	srcLen := len(sourceCode)
+	offset := func(pos token.Pos) int {
+		o := fset.Position(pos).Offset
+		if o > srcLen {
+			return srcLen
 		}
+		return o
+	}
+	lineNum := func(pos token.Pos) uint32 {
+		return uint32(fset.Position(pos).Line)
+	}
 
-		for _, capture := range match.Captures {
-			node := capture.Node
-			if _, seen := processedNodes[node.ID()]; seen {
-				continue
-			}
-			processedNodes[node.ID()] = struct{}{}
+	var chunks []SemanticChunk
 
-			nodeType := node.Type()
-			startByte := node.StartByte()
-			endByte := node.EndByte()
-
-			// Docstring Capture
-			docStart := startByte
-			prev := node.PrevSibling()
-			for prev != nil && prev.Type() == "comment" {
-				docStart = prev.StartByte()
-				prev = prev.PrevSibling()
+	for _, decl := range f.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			nodeType := "function_declaration"
+			if d.Recv != nil && len(d.Recv.List) > 0 {
+				nodeType = "method_declaration"
 			}
 
-			// Content Handling (Skeleton vs Full)
+			startPos := d.Pos()
+			if d.Doc != nil {
+				startPos = d.Doc.Pos()
+			}
+
 			var content string
-			if skeletonOnly && (nodeType == "function_declaration" || nodeType == "method_declaration") {
-				block := node.ChildByFieldName("body")
-				if block != nil {
-					sigEnd := block.StartByte()
-					content = string(sourceCode[docStart:sigEnd]) + " { ... }"
-				} else {
-					content = string(sourceCode[docStart:node.EndByte()])
-				}
+			if skeletonOnly && d.Body != nil {
+				sigEnd := offset(d.Body.Lbrace)
+				content = string(sourceCode[offset(startPos):sigEnd]) + "{ ... }"
 			} else {
-				content = string(sourceCode[docStart:endByte])
+				content = string(sourceCode[offset(startPos):offset(d.End())])
 			}
-
-			// Identifier Extraction
-			var identifier string
-			switch nodeType {
-			case "type_declaration":
-				for i := range int(node.NamedChildCount()) {
-					child := node.NamedChild(i)
-					if child.Type() == "type_spec" {
-						if nameNode := child.ChildByFieldName("name"); nameNode != nil {
-							identifier = rget(sourceCode, nameNode)
-						}
-						break
-					}
-				}
-			case "method_declaration", "function_declaration":
-				if nameNode := node.ChildByFieldName("name"); nameNode != nil {
-					identifier = rget(sourceCode, nameNode)
-				}
-			}
-
-			// Large Chunk Management
 			content = strings.TrimSpace(content)
+
 			if len(content) > 12000 {
 				t.logger.Warn("exceptionally large chunk detected",
-					"identifier", identifier,
+					"identifier", d.Name.Name,
 					"chars", len(content),
 					"file", filePath,
 				)
@@ -157,13 +109,54 @@ func (t *TreeSitterParser) extractGoChunks(ctx context.Context, sourceCode []byt
 
 			chunks = append(chunks, SemanticChunk{
 				Type:      nodeType,
-				Name:      strings.TrimSpace(identifier),
+				Name:      d.Name.Name,
 				Content:   content,
 				FilePath:  filePath,
 				Language:  "go",
-				StartLine: node.StartPoint().Row + 1,
-				EndLine:   node.EndPoint().Row + 1,
+				StartLine: lineNum(startPos),
+				EndLine:   lineNum(d.End()),
 			})
+
+		case *ast.GenDecl:
+			if d.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range d.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				// For ungrouped declarations the GenDecl's Doc is the type comment.
+				// For grouped ones, prefer the individual TypeSpec's Doc if present.
+				startPos := d.Pos()
+				switch {
+				case d.Doc != nil:
+					startPos = d.Doc.Pos()
+				case ts.Doc != nil:
+					startPos = ts.Doc.Pos()
+				}
+
+				content := strings.TrimSpace(string(sourceCode[offset(startPos):offset(d.End())]))
+				if len(content) > 12000 {
+					t.logger.Warn("exceptionally large chunk detected",
+						"identifier", ts.Name.Name,
+						"chars", len(content),
+						"file", filePath,
+					)
+					content = fmt.Sprintf("// [FEINO WARNING]: Large semantic chunk (%d chars).\n\n%s", len(content), content)
+				}
+
+				chunks = append(chunks, SemanticChunk{
+					Type:      "type_declaration",
+					Name:      ts.Name.Name,
+					Content:   content,
+					FilePath:  filePath,
+					Language:  "go",
+					StartLine: lineNum(startPos),
+					EndLine:   lineNum(d.End()),
+				})
+			}
 		}
 	}
 
@@ -216,14 +209,4 @@ func (t *TreeSitterParser) extractLineChunks(sourceCode []byte, filePath string)
 	}
 
 	return chunks, nil
-}
-
-// rget is a helper to extract a string from source bytes based on node bounds.
-func rget(source []byte, node *sitter.Node) string {
-	start := node.StartByte()
-	end := node.EndByte()
-	if end > uint32(len(source)) || start >= end {
-		return ""
-	}
-	return string(source[start:end])
 }
